@@ -40,7 +40,8 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
   autoconfigure:
-    exclude: []
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
 
   task:
     execution:
@@ -52,7 +53,7 @@ spring:
 
 app:
   rabbitmq:
-    enabled: true
+    enabled: false
 
   jwt:
     secret: ${JWT_SECRET:default-secret-key-change-in-production-must-be-at-least-256-bits-long}
@@ -78,6 +79,11 @@ app:
       region: ${AWS_REGION:ap-northeast-2}
       access-key: ${AWS_ACCESS_KEY_ID:}
       secret-key: ${AWS_SECRET_ACCESS_KEY:}
+
+management:
+  endpoint:
+    health:
+      show-details: always
 
 logging:
   level:
