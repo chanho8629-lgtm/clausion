@@ -17,6 +17,7 @@ export default function InviteCodeManagement() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [expiryDays, setExpiryDays] = useState(7);
+  const [copiedId, setCopiedId] = useState<number | null>(null);
 
   const fetchCodes = useCallback(async () => {
     try {
@@ -131,7 +132,22 @@ export default function InviteCodeManagement() {
               {codes.map((code) => (
                 <tr key={code.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                   <td className="px-5 py-3">
-                    <span className="font-mono text-sm font-bold text-slate-900 tracking-wider">{code.code}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-slate-900 tracking-wider">{code.code}</span>
+                      {!code.isUsed && !isExpired(code.expiresAt) && (
+                        <button
+                          onClick={() => {
+                            const url = `${window.location.origin}/operator/login`;
+                            navigator.clipboard.writeText(`운영자 초대 코드: ${code.code}\n가입 링크: ${url}`);
+                            setCopiedId(code.id);
+                            setTimeout(() => setCopiedId(null), 2000);
+                          }}
+                          className="px-2 py-0.5 text-[10px] font-medium rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                        >
+                          {copiedId === code.id ? '복사됨!' : '코드+링크 복사'}
+                        </button>
+                      )}
+                    </div>
                   </td>
                   <td className="px-5 py-3">{getStatusBadge(code)}</td>
                   <td className="px-5 py-3 text-sm text-slate-600">{code.createdByName ?? '-'}</td>
