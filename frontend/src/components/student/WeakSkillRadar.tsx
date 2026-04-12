@@ -1,6 +1,9 @@
 import React from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import SVGRadarChart from '../common/SVGRadarChart';
+import { coursesApi } from '../../api/courses';
+import { useCourseId } from '../../hooks/useCourseId';
 
 interface WeakSkill {
   id: string;
@@ -11,43 +14,40 @@ interface WeakSkill {
   forgettingRisk: number;
 }
 
-const MOCK_WEAK_SKILLS: WeakSkill[] = [
-  {
-    id: 'sk2',
-    name: '재귀 함수',
-    understanding: 42,
-    practice: 30,
-    confidence: 25,
-    forgettingRisk: 78,
-  },
-  {
-    id: 'sk5',
-    name: '클로저',
-    understanding: 50,
-    practice: 35,
-    confidence: 40,
-    forgettingRisk: 65,
-  },
-  {
-    id: 'sk8',
-    name: '트리 순회',
-    understanding: 55,
-    practice: 28,
-    confidence: 35,
-    forgettingRisk: 60,
-  },
-];
-
 interface WeakSkillRadarProps {
   studentId?: string;
   courseId?: string;
 }
 
-const WeakSkillRadar: React.FC<WeakSkillRadarProps> = () => {
-  const skills = MOCK_WEAK_SKILLS;
-  const [selected, setSelected] = React.useState<string>(skills[0]?.id ?? '');
+const WeakSkillRadar: React.FC<WeakSkillRadarProps> = ({ courseId: courseIdProp }) => {
+  const defaultCourseId = useCourseId();
+  const courseId = courseIdProp ?? defaultCourseId;
 
-  const current = skills.find((s) => s.id === selected) ?? skills[0];
+  const { data: skills = [] } = useQuery<WeakSkill[]>({
+    queryKey: ['weakSkills', courseId],
+    queryFn: async () => {
+      if (!courseId) return [];
+      const allSkills = await coursesApi.getSkills(courseId);
+      // Transform skills into weak skill format (skills with low mastery)
+      return allSkills
+        .filter((s: any) => (s.masteryScore ?? 0) < 60)
+        .slice(0, 5)
+        .map((s: any) => ({
+          id: String(s.id),
+          name: s.name,
+          understanding: s.masteryScore ?? 0,
+          practice: s.executionScore ?? 0,
+          confidence: s.confidenceScore ?? 0,
+          forgettingRisk: s.retentionRiskScore ?? 0,
+        }));
+    },
+    enabled: !!courseId,
+  });
+
+  const [selected, setSelected] = React.useState<string>('');
+
+  const effectiveSelected = selected || skills[0]?.id || '';
+  const current = skills.find((s) => s.id === effectiveSelected) ?? skills[0];
 
   const radarData = current
     ? [
@@ -77,6 +77,13 @@ const WeakSkillRadar: React.FC<WeakSkillRadarProps> = () => {
     >
       <h2 className="text-lg font-bold text-slate-900 mb-4">약점 스킬 분석</h2>
 
+      {skills.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-sm text-slate-400">분석할 약점 스킬이 없습니다</p>
+          <p className="text-xs text-slate-400 mt-1">학습을 진행하면 AI가 약점을 분석합니다</p>
+        </div>
+      ) : (
+      <>
       {/* Skill tabs */}
       <div className="flex gap-2 mb-4 overflow-x-auto">
         {skills.map((skill) => (
@@ -84,7 +91,7 @@ const WeakSkillRadar: React.FC<WeakSkillRadarProps> = () => {
             key={skill.id}
             onClick={() => setSelected(skill.id)}
             className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-              selected === skill.id
+              effectiveSelected === skill.id
                 ? 'bg-indigo-600 text-white'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
@@ -145,6 +152,8 @@ const WeakSkillRadar: React.FC<WeakSkillRadarProps> = () => {
             </div>
           ))}
         </div>
+      )}
+      </>
       )}
     </motion.div>
   );

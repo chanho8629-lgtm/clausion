@@ -5,64 +5,6 @@ import { reviewsApi } from '../../api/reviews';
 import ReviewTimeline from '../../components/student/ReviewTimeline';
 import type { ReviewTask } from '../../types';
 
-const MOCK_TASKS: ReviewTask[] = [
-  {
-    id: '1',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk1',
-    title: 'Python 리스트 컴프리헨션 복습',
-    reasonSummary: '망각위험 - 3일 전 학습 후 복습 없음',
-    scheduledFor: '2026-04-08',
-    status: 'PENDING',
-    completedAt: null,
-  },
-  {
-    id: '2',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk2',
-    title: '재귀 함수 기초 연습',
-    reasonSummary: '약점보강 - 지난 과제에서 오류 빈발',
-    scheduledFor: '2026-04-08',
-    status: 'IN_PROGRESS',
-    completedAt: null,
-  },
-  {
-    id: '3',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk3',
-    title: '정렬 알고리즘 비교 정리',
-    reasonSummary: '상담후속 - 강사 상담에서 권장',
-    scheduledFor: '2026-04-08',
-    status: 'COMPLETED',
-    completedAt: '2026-04-08T10:00:00Z',
-  },
-  {
-    id: '4',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk4',
-    title: '딕셔너리 활용 패턴',
-    reasonSummary: '망각위험 - 주기 복습 예정',
-    scheduledFor: '2026-04-07',
-    status: 'COMPLETED',
-    completedAt: '2026-04-07T15:00:00Z',
-  },
-  {
-    id: '5',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk5',
-    title: '클로저 개념 이해',
-    reasonSummary: '약점보강 - 이해도 점수 낮음',
-    scheduledFor: '2026-04-06',
-    status: 'SKIPPED',
-    completedAt: null,
-  },
-];
-
 type FilterStatus = 'all' | 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'SKIPPED';
 
 const STATUS_BADGE: Record<string, { label: string; color: string }> = {
@@ -76,10 +18,9 @@ const Review: React.FC = () => {
   const [filter, setFilter] = useState<FilterStatus>('all');
   const queryClient = useQueryClient();
 
-  const { data: tasks } = useQuery<ReviewTask[]>({
+  const { data: tasks = [] } = useQuery<ReviewTask[]>({
     queryKey: ['reviewsToday'],
     queryFn: () => reviewsApi.getTodayReviews(),
-    placeholderData: MOCK_TASKS,
   });
 
   const completeMutation = useMutation({
@@ -106,7 +47,7 @@ const Review: React.FC = () => {
     },
   });
 
-  const list = tasks ?? MOCK_TASKS;
+  const list = tasks;
   const filtered =
     filter === 'all' ? list : list.filter((t) => t.status === filter);
 

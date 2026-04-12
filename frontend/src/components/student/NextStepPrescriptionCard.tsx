@@ -7,42 +7,6 @@ import { useAuthStore } from '../../store/authStore';
 import type { Recommendation } from '../../types';
 import { getRecommendationAction } from '../../utils/recommendations';
 
-const MOCK_RECS: Recommendation[] = [
-  {
-    id: 'r1',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'review',
-    title: '재귀 함수 복습 미니퀴즈',
-    reasonSummary: '망각 곡선 기반 - 3일 후 기억 잔존율 38%',
-    triggerEvent: 'forgetting_curve',
-    expectedOutcome: '기억 정착률 40% 향상 예상',
-    createdAt: '2026-04-08T09:00:00Z',
-  },
-  {
-    id: 'r2',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'practice',
-    title: '정렬 알고리즘 코딩 연습',
-    reasonSummary: '지난 과제 수행력 부족 - 버블소트 구현 실패',
-    triggerEvent: 'weak_skill',
-    expectedOutcome: '수행력 점수 15점 상승 예상',
-    createdAt: '2026-04-08T09:00:00Z',
-  },
-  {
-    id: 'r3',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'consultation',
-    title: '강사 상담 예약',
-    reasonSummary: '학습 자신감 하락 추세 감지',
-    triggerEvent: 'confidence_drop',
-    expectedOutcome: '맞춤 학습 전략 수립',
-    createdAt: '2026-04-08T09:00:00Z',
-  },
-];
-
 const TYPE_STYLES: Record<string, { accent: string; icon: string }> = {
   review: { accent: 'from-indigo-500 to-violet-500', icon: '📖' },
   practice: { accent: 'from-emerald-500 to-teal-500', icon: '💻' },
@@ -57,10 +21,9 @@ const NextStepPrescriptionCard: React.FC = () => {
     queryKey: ['recommendations', studentId],
     queryFn: () => recommendationsApi.getRecommendations(studentId),
     enabled: !!studentId,
-    placeholderData: MOCK_RECS,
   });
 
-  const list = recs ?? MOCK_RECS;
+  const list = recs ?? [];
 
   return (
     <motion.div
@@ -72,6 +35,12 @@ const NextStepPrescriptionCard: React.FC = () => {
         다음 단계 처방
       </h2>
 
+      {list.length === 0 ? (
+        <div className="text-center py-6">
+          <p className="text-sm text-slate-400">추천이 아직 없습니다</p>
+          <p className="text-xs text-slate-400 mt-1">학습 데이터가 쌓이면 AI가 맞춤 추천을 생성합니다</p>
+        </div>
+      ) : (
       <div className="space-y-3">
         {list.map((rec, i) => {
           const style = TYPE_STYLES[rec.recommendationType] ?? TYPE_STYLES.review;
@@ -120,6 +89,7 @@ const NextStepPrescriptionCard: React.FC = () => {
           );
         })}
       </div>
+      )}
     </motion.div>
   );
 };

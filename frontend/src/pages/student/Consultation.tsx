@@ -51,7 +51,7 @@ const ConsultationPage: React.FC = () => {
   const requestMutation = useMutation({
     mutationFn: () => consultationsApi.requestConsultation({
       courseId: Number(courseId),
-      reason: requestReason || undefined,
+      message: requestReason || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consultations'] });

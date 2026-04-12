@@ -11,9 +11,11 @@ RUN npm ci
 # Copy source and build
 COPY . .
 
-# Set API URL at build time
+# Set env vars at build time
 ARG VITE_API_URL=https://clausion-production.up.railway.app
+ARG VITE_LIVEKIT_URL=wss://clausion-3gmrm9tj.livekit.cloud
 ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_LIVEKIT_URL=$VITE_LIVEKIT_URL
 
 RUN npm run build
 

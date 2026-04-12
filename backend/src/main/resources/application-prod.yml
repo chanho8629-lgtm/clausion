@@ -68,7 +68,7 @@ app:
   livekit:
     api-key: ${LIVEKIT_API_KEY:devkey}
     api-secret: ${LIVEKIT_API_SECRET:secretsecretsecretsecretsecretsecret}
-    url: ${LIVEKIT_URL:ws://localhost:7880}
+    url: ${LIVEKIT_URL:wss://clausion-3gmrm9tj.livekit.cloud}
 
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}

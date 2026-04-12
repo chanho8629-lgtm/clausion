@@ -40,6 +40,24 @@ export function useLiveKit({
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const roomRef = useRef<Room | null>(null);
+  const audioElementsRef = useRef<HTMLElement[]>([]);
+  const isConnectedRef = useRef(false);
+  const isConnectingRef = useRef(false);
+
+  const cleanupAudioElements = useCallback(() => {
+    audioElementsRef.current.forEach((el) => {
+      el.remove();
+    });
+    audioElementsRef.current = [];
+  }, []);
+
+  const attachAudioTrack = useCallback((track: Track) => {
+    if (track.kind === Track.Kind.Audio) {
+      const el = track.attach();
+      document.body.appendChild(el);
+      audioElementsRef.current.push(el);
+    }
+  }, []);
 
   const attachRemoteTrack = useCallback(
     (publication: RemoteTrackPublication) => {
@@ -50,18 +68,16 @@ export function useLiveKit({
       ) {
         publication.track.attach(remoteVideoRef.current);
       }
-      if (publication.track.kind === Track.Kind.Audio) {
-        const el = publication.track.attach();
-        document.body.appendChild(el);
-      }
+      attachAudioTrack(publication.track);
     },
-    [],
+    [attachAudioTrack],
   );
 
   const connect = useCallback(
     async (preToken?: string, _preRoomName?: string) => {
-      if (isConnected || isConnecting) return;
+      if (isConnectedRef.current || isConnectingRef.current) return;
 
+      isConnectingRef.current = true;
       setIsConnecting(true);
       setError(null);
 
@@ -86,7 +102,7 @@ export function useLiveKit({
         }
 
         const livekitUrl =
-          import.meta.env.VITE_LIVEKIT_URL ?? 'ws://localhost:7880';
+          import.meta.env.VITE_LIVEKIT_URL ?? 'wss://clausion-3gmrm9tj.livekit.cloud';
 
         const room = new Room();
         roomRef.current = room;
@@ -98,18 +114,20 @@ export function useLiveKit({
             if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
               track.attach(remoteVideoRef.current);
             }
-            if (track.kind === Track.Kind.Audio) {
-              const el = track.attach();
-              document.body.appendChild(el);
-            }
+            attachAudioTrack(track);
           },
         );
 
         room.on(RoomEvent.TrackUnsubscribed, (track) => {
-          track.detach();
+          const detachedElements = track.detach();
+          detachedElements.forEach((el) => {
+            el.remove();
+            audioElementsRef.current = audioElementsRef.current.filter((a) => a !== el);
+          });
         });
 
         room.on(RoomEvent.Disconnected, () => {
+          isConnectedRef.current = false;
           setIsConnected(false);
         });
 
@@ -133,6 +151,7 @@ export function useLiveKit({
           });
         });
 
+        isConnectedRef.current = true;
         setIsConnected(true);
       } catch (err) {
         const message =
@@ -146,24 +165,42 @@ export function useLiveKit({
           setError(message);
         }
       } finally {
+        isConnectingRef.current = false;
         setIsConnecting(false);
       }
     },
-    [consultationId, role, isConnected, isConnecting, attachRemoteTrack],
+    [consultationId, role, attachRemoteTrack, attachAudioTrack],
   );
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
+    // Call end-video API to update server state
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL ?? '';
+      const jwt = localStorage.getItem('token');
+      await fetch(`${BASE_URL}/api/consultations/${consultationId}/end-video`, {
+        method: 'POST',
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      });
+    } catch {
+      // Best-effort: don't block disconnect on API failure
+    }
+
     if (roomRef.current) {
       roomRef.current.disconnect();
       roomRef.current = null;
     }
+
+    // Clean up audio elements from DOM
+    cleanupAudioElements();
+
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
 
+    isConnectedRef.current = false;
     setIsConnected(false);
     setIsMicEnabled(true);
     setIsCameraEnabled(true);
-  }, []);
+  }, [consultationId, cleanupAudioElements]);
 
   const toggleMic = useCallback(() => {
     if (!roomRef.current) return;
@@ -185,8 +222,9 @@ export function useLiveKit({
         roomRef.current.disconnect();
         roomRef.current = null;
       }
+      cleanupAudioElements();
     };
-  }, []);
+  }, [cleanupAudioElements]);
 
   return {
     isConnected,

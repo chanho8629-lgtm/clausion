@@ -66,7 +66,6 @@ const ReviewTimeline: React.FC = () => {
   const { data: week = PLACEHOLDER } = useQuery<WeekDaySummary[]>({
     queryKey: ['reviewWeekSummary'],
     queryFn: () => reviewsApi.getWeekSummary(),
-    placeholderData: PLACEHOLDER,
   });
 
   const totalCompleted = week.reduce((s, d) => s + d.completed, 0);

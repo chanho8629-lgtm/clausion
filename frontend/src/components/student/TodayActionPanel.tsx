@@ -20,49 +20,12 @@ function getReasonBadge(reason: string) {
   return { label: reason, color: 'bg-slate-100 text-slate-600' };
 }
 
-const MOCK_TASKS: ReviewTask[] = [
-  {
-    id: '1',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk1',
-    title: 'Python 리스트 컴프리헨션 복습',
-    reasonSummary: '망각위험 - 3일 전 학습 후 복습 없음',
-    scheduledFor: new Date().toISOString(),
-    status: 'PENDING',
-    completedAt: null,
-  },
-  {
-    id: '2',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk2',
-    title: '재귀 함수 기초 연습',
-    reasonSummary: '약점보강 - 지난 과제에서 오류 빈발',
-    scheduledFor: new Date().toISOString(),
-    status: 'PENDING',
-    completedAt: null,
-  },
-  {
-    id: '3',
-    studentId: 's1',
-    courseId: 'c1',
-    skillId: 'sk3',
-    title: '정렬 알고리즘 비교 정리',
-    reasonSummary: '상담후속 - 강사 상담에서 권장',
-    scheduledFor: new Date().toISOString(),
-    status: 'IN_PROGRESS',
-    completedAt: null,
-  },
-];
-
 const TodayActionPanel: React.FC = () => {
   const queryClient = useQueryClient();
 
   const { data: tasks, isLoading } = useQuery<ReviewTask[]>({
     queryKey: ['reviewsToday'],
     queryFn: () => reviewsApi.getTodayReviews(),
-    placeholderData: MOCK_TASKS,
   });
 
   const completeMutation = useMutation({
@@ -89,13 +52,13 @@ const TodayActionPanel: React.FC = () => {
     },
   });
 
-  const activeTasks = (tasks ?? MOCK_TASKS).filter(
+  const activeTasks = (tasks ?? []).filter(
     (t) => t.status !== 'COMPLETED',
   );
-  const completedCount = (tasks ?? MOCK_TASKS).filter(
+  const completedCount = (tasks ?? []).filter(
     (t) => t.status === 'COMPLETED',
   ).length;
-  const totalCount = (tasks ?? MOCK_TASKS).length;
+  const totalCount = (tasks ?? []).length;
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm border border-slate-100">

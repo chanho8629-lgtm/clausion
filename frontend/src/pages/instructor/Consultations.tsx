@@ -15,41 +15,6 @@ import PostSummaryPanel from '../../components/consultation/PostSummaryPanel';
 import TagChip from '../../components/common/TagChip';
 import Modal from '../../components/common/Modal';
 
-const MOCK_CONSULTATIONS: (Consultation & { studentName: string })[] = [
-  {
-    id: 'con1', studentId: '5', instructorId: 'i1', courseId: 'c1',
-    scheduledAt: '2026-04-08T10:00:00Z', status: 'SCHEDULED',
-    summaryText: '', actionPlanJson: '', createdAt: '2026-04-07T08:00:00Z',
-    studentName: '정예린',
-  },
-  {
-    id: 'con2', studentId: '9', instructorId: 'i1', courseId: 'c1',
-    scheduledAt: '2026-04-08T11:30:00Z', status: 'SCHEDULED',
-    summaryText: '', actionPlanJson: '', createdAt: '2026-04-07T08:00:00Z',
-    studentName: '오민서',
-  },
-  {
-    id: 'con3', studentId: '11', instructorId: 'i1', courseId: 'c1',
-    scheduledAt: '2026-04-08T14:00:00Z', status: 'SCHEDULED',
-    summaryText: '', actionPlanJson: '', createdAt: '2026-04-07T09:00:00Z',
-    studentName: '황시우',
-  },
-  {
-    id: 'con4', studentId: '3', instructorId: 'i1', courseId: 'c1',
-    scheduledAt: '2026-04-07T10:00:00Z', status: 'COMPLETED',
-    summaryText: 'React 상태 관리 전반적 이해 부족. 기초부터 재학습 필요.',
-    actionPlanJson: '[]', createdAt: '2026-04-06T08:00:00Z',
-    studentName: '박지호',
-  },
-  {
-    id: 'con5', studentId: '8', instructorId: 'i1', courseId: 'c1',
-    scheduledAt: '2026-04-06T14:00:00Z', status: 'COMPLETED',
-    summaryText: '비동기 처리 개념 보강 필요. 자신감 회복에 초점.',
-    actionPlanJson: '[]', createdAt: '2026-04-05T08:00:00Z',
-    studentName: '장하은',
-  },
-];
-
 type View = 'list' | 'active';
 
 const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' }> = {
@@ -85,10 +50,9 @@ export default function Consultations() {
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
 
-  const { data: consultations = MOCK_CONSULTATIONS } = useQuery({
+  const { data: consultations = [] } = useQuery({
     queryKey: ['instructor', 'consultations'],
     queryFn: () => consultationsApi.getConsultations('instructor'),
-    placeholderData: MOCK_CONSULTATIONS,
     staleTime: 30_000,
   });
 
@@ -175,12 +139,14 @@ export default function Consultations() {
   const startConsultation = async (id: string) => {
     setStartingCall(id);
     try {
-      // Call start-video which notifies the student via SSE
-      await api.post<{ consultationId: number; roomName: string; token: string }>(
+      // Call start-video which notifies the student via SSE and returns token+roomName
+      const result = await api.post<{ consultationId: number; roomName: string; token: string }>(
         `/api/consultations/${id}/start-video`,
       );
-      // Navigate to the video call page
-      navigate(`/instructor/consultation/${id}/video`);
+      // Navigate to video call page with token so we use the same room
+      navigate(`/instructor/consultation/${id}/video`, {
+        state: { token: result.token, roomName: result.roomName },
+      });
     } catch {
       alert('화상 통화를 시작할 수 없습니다.');
     } finally {
@@ -201,10 +167,10 @@ export default function Consultations() {
           workspace={
             <div className="h-full flex flex-col gap-3">
               <div className="flex-1">
-                <VideoPanel onEndCall={endConsultation} />
+                <VideoPanel consultationId={Number(activeConsultationId)} role="instructor" onEndCall={endConsultation} />
               </div>
               <div className="h-48">
-                <LiveNotes />
+                <LiveNotes consultationId={activeConsultationId} />
               </div>
             </div>
           }
@@ -396,6 +362,7 @@ export default function Consultations() {
             <input
               type="datetime-local"
               value={scheduledAt}
+              min={new Date().toISOString().slice(0, 16)}
               onChange={(e) => setScheduledAt(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:border-indigo-400"
             />

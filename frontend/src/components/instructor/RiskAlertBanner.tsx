@@ -10,35 +10,27 @@ interface RiskStudent {
   reasons: string[];
 }
 
-const MOCK_RISK_STUDENTS: RiskStudent[] = [
-  { id: '5', name: '정예린', reasons: ['이해도 급락', '3주 연속 하락'] },
-  { id: '10', name: '오민서', reasons: ['과제 미제출', '망각 위험'] },
-  { id: '16', name: '황시우', reasons: ['출석률 저하', '동기 저하'] },
-  { id: '24', name: '백승현', reasons: ['자신감 하락', '수행력 부족'] },
-];
-
 export default function RiskAlertBanner() {
   const courseId = useCourseId();
   const navigate = useNavigate();
 
-  const { data: students = MOCK_RISK_STUDENTS } = useQuery({
+  const { data: students = [] } = useQuery({
     queryKey: ['instructor', 'risk-alerts', courseId],
     queryFn: async () => {
       const entries = await instructorApi.getCourseStudents(courseId!);
-      // Filter high-risk students (overallRiskScore >= 0.5) and map to UI format
       return entries
-        .filter((e) => Number(e.overallRiskScore) >= 0.5)
+        .filter((e) => Number(e.overallRiskScore) >= 50)
         .map((e) => {
           const reasons: string[] = [];
           if (Number(e.masteryScore) < 50) reasons.push('이해도 부족');
           if (Number(e.motivationScore) < 50) reasons.push('동기 저하');
-          if (Number(e.overallRiskScore) >= 0.7) reasons.push('고위험');
+          if (Number(e.overallRiskScore) >= 70) reasons.push('고위험');
           if (e.aiInsight) reasons.push(e.aiInsight.slice(0, 20));
+          if (reasons.length === 0) reasons.push('주의 필요');
           return { id: String(e.studentId), name: e.studentName, reasons };
         });
     },
     enabled: !!courseId,
-    placeholderData: MOCK_RISK_STUDENTS,
     staleTime: 30_000,
   });
 
@@ -57,7 +49,7 @@ export default function RiskAlertBanner() {
       </div>
 
       <div className="space-y-2">
-        {students.map((s) => (
+        {students.map((s: RiskStudent) => (
           <div
             key={s.id}
             className="flex items-center justify-between p-3 rounded-xl bg-white/80 border border-rose-100"

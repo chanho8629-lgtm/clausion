@@ -5,13 +5,13 @@ import { useStudentTwin } from '../../hooks/useStudentTwin';
 import { useAuthStore } from '../../store/authStore';
 import type { RadarChartData } from '../../types';
 
-const MOCK_RADAR: RadarChartData = {
-  understanding: 78,
-  execution: 65,
-  completion: 82,
-  forgettingRisk: 45,
-  focus: 70,
-  confidence: 60,
+const EMPTY_RADAR: RadarChartData = {
+  understanding: 0,
+  execution: 0,
+  completion: 0,
+  forgettingRisk: 0,
+  focus: 0,
+  confidence: 0,
 };
 
 const DEFAULT_INSIGHT =
@@ -50,7 +50,7 @@ const TwinStateCard: React.FC = () => {
         focus: twin.motivationScore,
         confidence: 100 - twin.consultationNeedScore,
       }
-    : MOCK_RADAR;
+    : EMPTY_RADAR;
 
   const radarValues = [
     radar.understanding,
@@ -61,7 +61,7 @@ const TwinStateCard: React.FC = () => {
     radar.confidence,
   ];
 
-  const overallRisk = twin?.overallRiskScore ?? 45;
+  const overallRisk = twin?.overallRiskScore ?? 0;
   const risk = riskLevel(overallRisk);
   const insight = twin?.aiInsight ?? DEFAULT_INSIGHT;
   const trend = twin?.trendDirection ? TREND_CONFIG[twin.trendDirection] : null;

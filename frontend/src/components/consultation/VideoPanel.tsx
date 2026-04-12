@@ -3,15 +3,17 @@ import VideoControls from './VideoControls';
 import { useLiveKit } from '../../hooks/useLiveKit';
 
 interface VideoPanelProps {
-  consultationId?: number;
+  consultationId: number;
   role?: 'student' | 'instructor';
   onEndCall?: () => void;
+  preToken?: string;
 }
 
 export default function VideoPanel({
-  consultationId = 1,
+  consultationId,
   role = 'student',
   onEndCall,
+  preToken,
 }: VideoPanelProps) {
   const {
     isConnected,
@@ -27,9 +29,9 @@ export default function VideoPanel({
     error,
   } = useLiveKit({ consultationId, role });
 
-  // Auto-connect on mount
+  // Auto-connect on mount (use preToken from start-video if available)
   useEffect(() => {
-    connect();
+    connect(preToken);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -47,7 +49,6 @@ export default function VideoPanel({
           ref={remoteVideoRef}
           autoPlay
           playsInline
-          muted
           className="absolute inset-0 w-full h-full object-cover"
         />
 
