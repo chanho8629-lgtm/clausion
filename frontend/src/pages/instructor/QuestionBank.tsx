@@ -614,7 +614,7 @@ export default function QuestionBank() {
               >
                 <option value="">전체 스킬</option>
                 {skills.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.difficulty === 'EASY' ? '기초' : s.difficulty === 'MEDIUM' ? '중급' : '고급'})</option>
+                  <option key={s.id} value={String(s.id)}>{s.name} ({s.difficulty === 'EASY' ? '기초' : s.difficulty === 'MEDIUM' ? '중급' : '고급'})</option>
                 ))}
               </select>
             )}
