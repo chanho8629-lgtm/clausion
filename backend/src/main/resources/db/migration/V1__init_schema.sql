@@ -191,3 +191,4 @@ CREATE INDEX idx_consultations_student ON consultations(student_id, scheduled_at
 CREATE INDEX idx_recommendations_student ON recommendations(student_id, created_at DESC);
 CREATE INDEX idx_questions_course ON questions(course_id, approval_status);
 CREATE INDEX idx_course_enrollments_student ON course_enrollments(student_id);
+

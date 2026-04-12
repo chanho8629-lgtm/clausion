@@ -1,0 +1,10 @@
+# 모든 텍스트 파일은 체크아웃 시 각 OS에 맞게, 커밋 시에는 LF로 고정
+* text=auto
+
+# 명시적으로 줄바꿈을 지정해야 하는 파일
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# 바이너리 파일(이미지 등)은 건드리지 않음
+*.png binary
+*.jpg binary
