@@ -96,7 +96,7 @@ export interface Reflection {
   courseId: string;
   content: string;
   selfConfidenceScore: number;
-  emotionSummary: string;
+  emotionSummary: string | { primary?: string; secondary?: string };
   createdAt: string;
 }
 

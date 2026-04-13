@@ -72,7 +72,11 @@ const ReflectionTimeline: React.FC<ReflectionTimelineProps> = ({
               month: 'short',
               day: 'numeric',
             });
-            const emotions = ref.emotionSummary ? ref.emotionSummary.split(',').map((e) => e.trim()) : [];
+            const emotions: string[] = ref.emotionSummary
+              ? typeof ref.emotionSummary === 'string'
+                ? ref.emotionSummary.split(',').map((e) => e.trim())
+                : [ref.emotionSummary.primary, ref.emotionSummary.secondary].filter((v): v is string => !!v)
+              : [];
 
             return (
               <motion.div
