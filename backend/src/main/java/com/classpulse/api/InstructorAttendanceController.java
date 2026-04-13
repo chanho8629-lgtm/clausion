@@ -117,6 +117,11 @@ public class InstructorAttendanceController {
     /** 세션별 출결 기록 조회 */
     @GetMapping("/records")
     public ResponseEntity<List<Map<String, Object>>> getAttendanceRecords(@RequestParam Long sessionId) {
+        CourseSession session = courseSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+        if (!isOwnCourse(session.getCourseId())) {
+            return ResponseEntity.status(403).build();
+        }
         List<AttendanceRecord> records = attendanceRepository.findBySessionId(sessionId);
         List<Map<String, Object>> result = records.stream().map(ar -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -137,6 +142,19 @@ public class InstructorAttendanceController {
     @PostMapping("/records")
     @Transactional
     public ResponseEntity<Void> bulkUpdateAttendance(@RequestBody List<Map<String, String>> records) {
+        // 모든 sessionId에 대해 과정 소유권 사전 검증
+        java.util.Set<Long> verifiedSessions = new java.util.HashSet<>();
+        for (Map<String, String> rec : records) {
+            Long sessionId = Long.valueOf(rec.get("sessionId"));
+            if (!verifiedSessions.contains(sessionId)) {
+                CourseSession session = courseSessionRepository.findById(sessionId)
+                        .orElseThrow(() -> new IllegalArgumentException("Session not found: " + sessionId));
+                if (!isOwnCourse(session.getCourseId())) {
+                    return ResponseEntity.status(403).build();
+                }
+                verifiedSessions.add(sessionId);
+            }
+        }
         Long instructorId = SecurityUtil.getCurrentUserId();
         for (Map<String, String> rec : records) {
             Long sessionId = Long.valueOf(rec.get("sessionId"));

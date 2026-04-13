@@ -46,7 +46,7 @@ export default function WhatIfSimulation() {
       출석률: selectedStudent ? `${(selectedStudent.attendanceRate * 100).toFixed(0)}%` : '-',
       숙련도: studentTwin.masteryScore?.toFixed(0) ?? '-',
       동기_점수: studentTwin.motivationScore?.toFixed(0) ?? '-',
-      이탈_위험: `${((studentTwin.overallRiskScore ?? 0) * 100).toFixed(0)}%`,
+      이탈_위험: `${Math.round(studentTwin.overallRiskScore ?? 0)}%`,
     };
   }, [studentTwin, students, targetStudentId]);
 

@@ -94,6 +94,14 @@ public class StudyGroupController {
             @PathVariable Long studentId,
             @RequestParam Long courseId
     ) {
+        // 본인 또는 강사만 매칭 조회 가능
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (!userId.equals(studentId)) {
+            User currentUser = userService.findById(userId);
+            if (currentUser.getRole() != User.Role.INSTRUCTOR) {
+                throw new SecurityException("Access denied");
+            }
+        }
         Map<String, Object> result = studyGroupMatcherAi.findMatches(studentId, courseId);
 
         List<Map<String, Object>> matches =

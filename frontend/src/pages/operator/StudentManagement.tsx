@@ -3,8 +3,8 @@ import { operatorApi } from '../../api/operator';
 import GlassCard from '../../components/common/GlassCard';
 
 function RiskBadge({ risk }: { risk: number }) {
-  const color = risk >= 0.8 ? 'bg-rose-100 text-rose-700' : risk >= 0.6 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>{(risk * 100).toFixed(0)}%</span>;
+  const color = risk >= 80 ? 'bg-rose-100 text-rose-700' : risk >= 60 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${color}`}>{Math.round(risk)}%</span>;
 }
 
 export default function StudentManagement() {

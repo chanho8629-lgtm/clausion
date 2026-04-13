@@ -87,6 +87,11 @@ public class ConsultationController {
 
     @PostMapping
     public ResponseEntity<ConsultationResponse> create(@RequestBody CreateConsultationRequest request) {
+        // 호출자가 student 또는 instructor 본인이어야 함
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (!userId.equals(request.studentId()) && !userId.equals(request.instructorId())) {
+            throw new SecurityException("상담 생성 권한이 없습니다.");
+        }
         Consultation consultation = consultationService.createConsultation(
                 request.studentId(), request.instructorId(),
                 request.courseId(), request.scheduledAt()
@@ -123,6 +128,9 @@ public class ConsultationController {
     @Transactional
     public ResponseEntity<?> requestConsultation(@RequestBody Map<String, Object> body) {
         Long studentId = SecurityUtil.getCurrentUserId();
+        if (body.get("courseId") == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "courseId는 필수입니다."));
+        }
         Long courseId = Long.valueOf(body.get("courseId").toString());
         String message = readFirstString(body, "reason", "message");
 
@@ -161,6 +169,7 @@ public class ConsultationController {
     @Transactional
     public ResponseEntity<ConsultationResponse> accept(@PathVariable Long id) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
 
         if (!"REQUESTED".equals(consultation.getStatus())) {
             return ResponseEntity.badRequest().build();
@@ -186,6 +195,7 @@ public class ConsultationController {
     @Transactional
     public ResponseEntity<ConsultationResponse> reject(@PathVariable Long id) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
 
         String currentStatus = consultation.getStatus();
         if (!"REQUESTED".equals(currentStatus) && !"SCHEDULED".equals(currentStatus)) {
@@ -247,6 +257,7 @@ public class ConsultationController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         if (!"REQUESTED".equals(consultation.getStatus())) {
             return ResponseEntity.badRequest().build();
         }
@@ -276,12 +287,14 @@ public class ConsultationController {
     @GetMapping("/{id}")
     public ResponseEntity<ConsultationResponse> getById(@PathVariable Long id) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         return ResponseEntity.ok(ConsultationResponse.from(consultation));
     }
 
     @GetMapping("/{id}/briefing")
     public ResponseEntity<Map<String, Object>> getBriefing(@PathVariable Long id) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         Map<String, Object> briefing = consultation.getBriefingJson();
         if (briefing == null) {
             briefing = Map.of("message", "Briefing not yet generated");
@@ -295,6 +308,7 @@ public class ConsultationController {
             @PathVariable Long id,
             @RequestBody(required = false) Map<String, Object> body
     ) {
+        verifyConsultationAccess(consultationService.getById(id));
         if (body != null && hasManualSummaryPayload(body)) {
             Consultation updated = consultationService.updateSummary(
                     id,
@@ -323,9 +337,17 @@ public class ConsultationController {
             @RequestBody UpdateNotesRequest request
     ) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         consultation.setNotes(request.notes());
         consultation = consultationRepository.save(consultation);
         return ResponseEntity.ok(ConsultationResponse.from(consultation));
+    }
+
+    private void verifyConsultationAccess(Consultation c) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (!c.getStudent().getId().equals(userId) && !c.getInstructor().getId().equals(userId)) {
+            throw new SecurityException("상담 접근 권한이 없습니다.");
+        }
     }
 
     private boolean hasManualSummaryPayload(Map<String, Object> body) {

@@ -260,6 +260,7 @@ public class QuestionController {
 
     @PostMapping("/api/questions")
     public ResponseEntity<QuestionResponse> create(@RequestBody CreateQuestionRequest request) {
+        verifyInstructorRole();
         Course course = courseRepository.findById(request.courseId())
                 .orElseThrow(() -> new IllegalArgumentException("Course not found: " + request.courseId()));
 
@@ -288,6 +289,7 @@ public class QuestionController {
             @PathVariable Long id,
             @RequestBody UpdateQuestionRequest request
     ) {
+        verifyInstructorRole();
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Question not found: " + id));
 
@@ -303,6 +305,7 @@ public class QuestionController {
 
     @DeleteMapping("/api/questions/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
+        verifyInstructorRole();
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Question not found: " + id));
         questionRepository.delete(question);

@@ -56,7 +56,7 @@ public class AuthController {
             return ResponseEntity.badRequest().build();
         }
         RegistrationCode inviteCode = null;
-        if (role == User.Role.OPERATOR) {
+        if (role == User.Role.OPERATOR || role == User.Role.INSTRUCTOR) {
             if (request.inviteCode() == null || request.inviteCode().isBlank()) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
                         .body(null);

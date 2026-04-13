@@ -186,7 +186,7 @@ public class ReviewController {
             if (date.equals(today)) {
                 status = "today";
             } else if (total == 0) {
-                status = "future";
+                status = date.isBefore(today) ? "empty" : "future";
             } else if (completed == total) {
                 status = "completed";
             } else if (completed > 0) {

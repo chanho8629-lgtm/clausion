@@ -175,7 +175,7 @@ export interface Consultation {
   notes?: string;
   summaryText: string;
   causeAnalysis?: string;
-  actionPlanJson: string;
+  actionPlanJson: ActionPlan[] | string;
   briefingJson?: Record<string, unknown>;
   videoRoomName?: string;
   createdAt: string;
