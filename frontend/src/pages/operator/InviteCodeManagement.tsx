@@ -20,7 +20,7 @@ export default function InviteCodeManagement() {
   const [copiedId, setCopiedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: codes = [], isLoading: loading } = useQuery({
+  const { data: codes = [], isLoading } = useQuery({
     queryKey: ['operator', 'invite-codes'],
     queryFn: () => api.get<InviteCode[]>('/api/operator/invite-codes'),
   });
@@ -93,7 +93,7 @@ export default function InviteCodeManagement() {
   };
 
   const handleCreate = () => {
-    setCreateError(null);
+    setError(null);
     createMutation.mutate();
   };
 
@@ -125,7 +125,7 @@ export default function InviteCodeManagement() {
             </select>
           </div>
           <button
-            onClick={() => createMutation.mutate()}
+            onClick={handleCreate}
             disabled={createMutation.isPending}
             className="px-4 py-2 rounded-lg bg-slate-800 text-white text-sm font-medium hover:bg-slate-900 disabled:opacity-50 transition-colors"
           >
@@ -167,44 +167,6 @@ export default function InviteCodeManagement() {
               </tr>
             </thead>
             <tbody>
-              {codes.map((code) => (
-                <tr key={code.id} className="border-b border-slate-50 hover:bg-slate-50/50">
-                  <td className="px-5 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-slate-900 tracking-wider">{code.code}</span>
-                      {!code.isUsed && !isExpired(code.expiresAt) && (
-                        <button
-                          onClick={() => {
-                            const url = `${window.location.origin}/operator/login`;
-                            navigator.clipboard.writeText(`운영자 초대 코드: ${code.code}\n가입 링크: ${url}`);
-                            setCopiedId(code.id);
-                            setTimeout(() => setCopiedId(null), 2000);
-                          }}
-                          className="px-2 py-0.5 text-[10px] font-medium rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
-                        >
-                          {copiedId === code.id ? '복사됨!' : '코드+링크 복사'}
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-5 py-3">{getStatusBadge(code)}</td>
-                  <td className="px-5 py-3 text-sm text-slate-600">{code.createdByName ?? '-'}</td>
-                  <td className="px-5 py-3 text-sm text-slate-600">{code.usedByName ?? '-'}</td>
-                  <td className="px-5 py-3 text-xs text-slate-500">{formatDate(code.expiresAt)}</td>
-                  <td className="px-5 py-3 text-xs text-slate-500">{formatDate(code.createdAt)}</td>
-                  <td className="px-5 py-3 text-right">
-                    {!code.isUsed && (
-                      <button
-                        onClick={() => deleteMutation.mutate(code.id)}
-                        className="text-xs text-red-500 hover:text-red-700 font-medium"
-                      >
-                        삭제
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              </thead>
-              <tbody>
                 {codes.map((code) => {
                   const status = getStatus(code);
                   return (
@@ -275,6 +237,7 @@ export default function InviteCodeManagement() {
             </table>
           </div>
         )}
+      </div>
       </GlassCard>
     </div>
   );
