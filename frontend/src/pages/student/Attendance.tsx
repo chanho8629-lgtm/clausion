@@ -132,6 +132,7 @@ export default function StudentAttendance() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {myAttendance.map((course) => {
               const pct = Math.round(course.attendanceRate * 100);
+              const noSessions = course.totalCount === 0;
               const barColor =
                 pct >= 90 ? 'bg-emerald-500'
                 : pct >= 70 ? 'bg-sky-500'
@@ -141,35 +142,45 @@ export default function StudentAttendance() {
                 <GlassCard key={course.courseId} className="p-5">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-bold text-slate-900">{course.courseTitle}</h3>
-                    <span className={`text-lg font-extrabold ${pct >= 80 ? 'text-emerald-600' : pct >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
-                      {pct}%
-                    </span>
+                    {noSessions ? (
+                      <span className="text-xs font-medium text-slate-400">수업 전</span>
+                    ) : (
+                      <span className={`text-lg font-extrabold ${pct >= 80 ? 'text-emerald-600' : pct >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
+                        {pct}%
+                      </span>
+                    )}
                   </div>
 
-                  {/* 출석률 바 */}
-                  <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-2">
-                    <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
-                  </div>
-                  <p className="text-xs text-slate-500 mb-3">
-                    출석 {course.presentCount} / 전체 {course.totalCount}회
-                  </p>
-
-                  {/* 최근 출결 */}
-                  {course.recentRecords.length > 0 && (
-                    <div className="border-t border-slate-100 pt-3">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">최근 기록</p>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {course.recentRecords.map((rec, i) => (
-                          <span
-                            key={i}
-                            title={`${rec.sessionDate} ${rec.sessionTitle ?? ''}`}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusColor[rec.status]}`}
-                          >
-                            {statusLabel[rec.status]}
-                          </span>
-                        ))}
+                  {noSessions ? (
+                    <p className="text-xs text-slate-400">아직 진행된 수업이 없습니다.</p>
+                  ) : (
+                    <>
+                      {/* 출석률 바 */}
+                      <div className="h-2.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+                        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
                       </div>
-                    </div>
+                      <p className="text-xs text-slate-500 mb-3">
+                        출석 {course.presentCount} / 전체 {course.totalCount}회
+                      </p>
+
+                      {/* 최근 출결 */}
+                      {course.recentRecords.length > 0 && (
+                        <div className="border-t border-slate-100 pt-3">
+                          <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">최근 기록</p>
+                          <div className="flex gap-1.5 flex-wrap">
+                            {course.recentRecords.map((rec, i) => (
+                              <span
+                                key={i}
+                                title={`${rec.sessionDate} ${rec.sessionTitle ?? ''}`}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusColor[rec.status]}`}
+                              >
+                                {statusLabel[rec.status]}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </GlassCard>
               );
