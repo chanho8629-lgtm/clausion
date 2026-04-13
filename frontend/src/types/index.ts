@@ -31,12 +31,17 @@ export interface Course {
   description: string;
   schedule?: string;
   classTime?: string;
+  startDate?: string;
+  endDate?: string;
   status: string;
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
   approvalNote?: string;
   maxCapacity?: number;
   createdBy: string;
+  createdByName?: string;
   createdAt: string;
+  weeks?: { id: number; weekNo: number; title: string; summary: string }[];
+  enrollmentCount?: number;
 }
 
 export interface CourseWeek {
@@ -52,7 +57,7 @@ export interface CurriculumSkill {
   courseId: string;
   name: string;
   description: string;
-  difficulty: number;
+  difficulty: string;
   prerequisiteIds: number[];
 }
 
@@ -96,7 +101,7 @@ export interface Reflection {
   courseId: string;
   content: string;
   selfConfidenceScore: number;
-  emotionSummary: string;
+  emotionSummary: string | { primary?: string; secondary?: string };
   createdAt: string;
 }
 
@@ -253,6 +258,7 @@ export interface StudyGroupMember {
   studentId?: string;
   name: string;
   studentName?: string;
+  role?: string;
   avatarGradient: string;
   strength: string;
   strengthSummary?: string;

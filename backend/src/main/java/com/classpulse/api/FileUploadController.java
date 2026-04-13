@@ -1,10 +1,9 @@
 package com.classpulse.api;
 
 import com.classpulse.config.SecurityUtil;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,20 +21,30 @@ import java.util.UUID;
 @Slf4j
 @RestController
 @RequestMapping("/api/files")
-@RequiredArgsConstructor
-@ConditionalOnBean(S3Client.class)
 public class FileUploadController {
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
 
-    @Value("${app.aws.s3.bucket}")
+    @Value("${app.aws.s3.bucket:clausion}")
     private String bucket;
 
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+    public FileUploadController(
+            @Autowired(required = false) S3Client s3Client,
+            @Autowired(required = false) S3Presigner s3Presigner) {
+        this.s3Client = s3Client;
+        this.s3Presigner = s3Presigner;
+    }
+
     @PostMapping("/upload")
     public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
+        if (s3Client == null) {
+            log.warn("S3 not configured, upload rejected");
+            return ResponseEntity.status(503).body(Map.of("error", "파일 업로드 서비스가 설정되지 않았습니다."));
+        }
+
         Long userId = SecurityUtil.getCurrentUserId();
 
         if (file.isEmpty()) {
@@ -62,7 +71,6 @@ public class FileUploadController {
 
             s3Client.putObject(putRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-            // Generate presigned URL (valid 7 days)
             String downloadUrl = generatePresignedUrl(key);
 
             return ResponseEntity.ok(Map.of(
@@ -73,14 +81,22 @@ public class FileUploadController {
                     "url", downloadUrl
             ));
         } catch (Exception e) {
-            log.error("S3 업로드 실패: userId={}, fileName={}", userId, originalName, e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "파일 업로드에 실패했습니다."));
+            log.error("S3 업로드 실패: userId={}, fileName={}, bucket={}, error={}",
+                    userId, originalName, bucket, e.getMessage(), e);
+            String detail = e.getMessage() != null ? e.getMessage() : "알 수 없는 오류";
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "error", "파일 업로드에 실패했습니다.",
+                    "detail", detail
+            ));
         }
     }
 
     @GetMapping("/download-url")
     public ResponseEntity<?> getDownloadUrl(@RequestParam String fileKey) {
-        SecurityUtil.getCurrentUserId(); // auth check
+        if (s3Presigner == null) {
+            return ResponseEntity.status(503).body(Map.of("error", "파일 다운로드 서비스가 설정되지 않았습니다."));
+        }
+        SecurityUtil.getCurrentUserId();
         String url = generatePresignedUrl(fileKey);
         return ResponseEntity.ok(Map.of("url", url));
     }

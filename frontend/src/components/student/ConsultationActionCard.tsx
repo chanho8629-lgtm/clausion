@@ -2,17 +2,22 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { consultationsApi } from '../../api/consultations';
+import { useCourseId } from '../../hooks/useCourseId';
 import type { Consultation, ActionPlan } from '../../types';
 
 
-function parseActionPlans(json: string | null | undefined): ActionPlan[] {
+function parseActionPlans(json: any): ActionPlan[] {
   if (!json) return [];
-  try {
-    const parsed = JSON.parse(json);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  if (Array.isArray(json)) return json;
+  if (typeof json === 'string') {
+    try {
+      const parsed = JSON.parse(json);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
+  return [];
 }
 
 const STATUS_LABEL: Record<string, { text: string; color: string }> = {
@@ -36,9 +41,10 @@ interface ConsultationActionCardProps {
 const ConsultationActionCard: React.FC<ConsultationActionCardProps> = ({
   role = 'student',
 }) => {
+  const courseId = useCourseId();
   const { data: consultations, isLoading } = useQuery<Consultation[]>({
-    queryKey: ['consultations', role],
-    queryFn: () => consultationsApi.getConsultations(role),
+    queryKey: ['consultations', role, courseId],
+    queryFn: () => consultationsApi.getConsultations(role, courseId),
   });
 
   const list = consultations ?? [];
@@ -86,13 +92,32 @@ const ConsultationActionCard: React.FC<ConsultationActionCardProps> = ({
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-2">
-                <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle.color}`}
-                >
-                  {statusStyle.text}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusStyle.color}`}
+                  >
+                    {statusStyle.text}
+                  </span>
+                  {con.courseTitle && (
+                    <span className="text-xs font-medium text-slate-600">
+                      {con.courseTitle}
+                    </span>
+                  )}
+                  {con.instructorName && (
+                    <span className="text-xs text-slate-400">
+                      · {con.instructorName}
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs text-slate-400">{dateStr}</span>
               </div>
+
+              {/* Notes (for REQUESTED status) */}
+              {con.status === 'REQUESTED' && con.notes && (
+                <p className="text-xs text-slate-500 leading-relaxed mb-2">
+                  {con.notes}
+                </p>
+              )}
 
               {/* Summary */}
               {con.summaryText && (

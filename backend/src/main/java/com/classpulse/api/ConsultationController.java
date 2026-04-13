@@ -220,7 +220,9 @@ public class ConsultationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ConsultationResponse>> list(@RequestParam String role) {
+    public ResponseEntity<List<ConsultationResponse>> list(
+            @RequestParam String role,
+            @RequestParam(required = false) Long courseId) {
         Long userId = SecurityUtil.getCurrentUserId();
         List<Consultation> consultations;
 
@@ -230,7 +232,45 @@ public class ConsultationController {
             consultations = consultationService.getByStudentId(userId);
         }
 
+        if (courseId != null) {
+            consultations = consultations.stream()
+                    .filter(c -> c.getCourse().getId().equals(courseId))
+                    .toList();
+        }
+
         return ResponseEntity.ok(consultations.stream().map(ConsultationResponse::from).toList());
+    }
+
+    @PutMapping("/{id}/schedule")
+    @Transactional
+    public ResponseEntity<ConsultationResponse> schedule(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        Consultation consultation = consultationService.getById(id);
+        if (!"REQUESTED".equals(consultation.getStatus())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        LocalDateTime newScheduledAt = LocalDateTime.parse(body.get("scheduledAt"));
+        consultation.setScheduledAt(newScheduledAt);
+        consultation.setStatus("SCHEDULED");
+        consultation = consultationRepository.save(consultation);
+
+        // Notify student
+        notificationService.createNotification(
+                consultation.getStudent().getId(),
+                "CONSULTATION_SCHEDULED",
+                "상담 일정이 확정되었습니다",
+                String.format("%s 과목 상담이 %s에 예정되어 있습니다.",
+                        consultation.getCourse().getTitle(),
+                        newScheduledAt.toLocalDate()),
+                Map.of("consultationId", consultation.getId(), "courseId", consultation.getCourse().getId())
+        );
+
+        // Auto-generate briefing
+        consultationAiService.generateBriefing(consultation.getId());
+
+        return ResponseEntity.ok(ConsultationResponse.from(consultation));
     }
 
     @GetMapping("/{id}")

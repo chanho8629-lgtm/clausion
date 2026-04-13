@@ -3,15 +3,16 @@ import { motion } from 'framer-motion';
 import SVGRadarChart from '../common/SVGRadarChart';
 import { useStudentTwin } from '../../hooks/useStudentTwin';
 import { useAuthStore } from '../../store/authStore';
+import { useCourseId } from '../../hooks/useCourseId';
 import type { RadarChartData } from '../../types';
 
-const MOCK_RADAR: RadarChartData = {
-  understanding: 78,
-  execution: 65,
-  completion: 82,
-  forgettingRisk: 45,
-  focus: 70,
-  confidence: 60,
+const EMPTY_RADAR: RadarChartData = {
+  understanding: 0,
+  execution: 0,
+  completion: 0,
+  forgettingRisk: 0,
+  focus: 0,
+  confidence: 0,
 };
 
 const DEFAULT_INSIGHT =
@@ -38,7 +39,8 @@ function riskLevel(score: number): {
 const TwinStateCard: React.FC = () => {
   const { user } = useAuthStore();
   const studentId = user?.id?.toString() ?? '';
-  const { data: twin } = useStudentTwin(studentId);
+  const courseId = useCourseId();
+  const { data: twin } = useStudentTwin(studentId, courseId);
 
   const hasTwinData = twin && twin.masteryScore != null;
   const radar: RadarChartData = hasTwinData
@@ -50,7 +52,7 @@ const TwinStateCard: React.FC = () => {
         focus: twin.motivationScore,
         confidence: 100 - twin.consultationNeedScore,
       }
-    : MOCK_RADAR;
+    : EMPTY_RADAR;
 
   const radarValues = [
     radar.understanding,
@@ -61,7 +63,7 @@ const TwinStateCard: React.FC = () => {
     radar.confidence,
   ];
 
-  const overallRisk = twin?.overallRiskScore ?? 45;
+  const overallRisk = twin?.overallRiskScore ?? 0;
   const risk = riskLevel(overallRisk);
   const insight = twin?.aiInsight ?? DEFAULT_INSIGHT;
   const trend = twin?.trendDirection ? TREND_CONFIG[twin.trendDirection] : null;
@@ -123,7 +125,7 @@ const TwinStateCard: React.FC = () => {
       </div>
 
       {/* Score Summary */}
-      <div className="grid grid-cols-3 gap-2 mt-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
         {[
           { label: '이해도', value: radar.understanding },
           { label: '수행력', value: radar.execution },

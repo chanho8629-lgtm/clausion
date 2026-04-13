@@ -2,51 +2,24 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { useGamification } from '../../hooks/useGamification';
 import { useAuthStore } from '../../store/authStore';
+import { useCourseId } from '../../hooks/useCourseId';
 import type { GamificationState } from '../../types';
 
-const MOCK_STATE: GamificationState = {
-  level: 7,
-  currentXP: 1350,
-  nextLevelXP: 2000,
-  levelTitle: '성장하는 코더',
-  streakDays: 5,
-  badges: [
-    {
-      id: 'b1',
-      name: '첫 복습',
-      emoji: '📖',
-      description: '첫 복습 완료',
-      earnedAt: '2026-04-01',
-    },
-    {
-      id: 'b2',
-      name: '연속 3일',
-      emoji: '🔥',
-      description: '3일 연속 학습',
-      earnedAt: '2026-04-03',
-    },
-    {
-      id: 'b3',
-      name: '코드 마스터',
-      emoji: '💻',
-      description: '코드 분석 5회',
-      earnedAt: '2026-04-05',
-    },
-    {
-      id: 'b4',
-      name: '완벽한 주',
-      emoji: '⭐',
-      description: '주간 미션 올 클리어',
-      earnedAt: '2026-04-07',
-    },
-  ],
+const DEFAULT_STATE: GamificationState = {
+  level: 1,
+  currentXP: 0,
+  nextLevelXP: 100,
+  levelTitle: '시작하는 학습자',
+  streakDays: 0,
+  badges: [],
 };
 
 const GamificationBar: React.FC = () => {
   const { user } = useAuthStore();
   const studentId = user?.id?.toString() ?? '';
-  const { data } = useGamification(studentId);
-  const state = data && data.currentXP != null ? data : MOCK_STATE;
+  const courseId = useCourseId();
+  const { data } = useGamification(studentId, courseId);
+  const state = data && data.currentXP != null ? data : DEFAULT_STATE;
 
   const xpPercent = state.nextLevelXP > 0
     ? Math.round((state.currentXP / state.nextLevelXP) * 100)

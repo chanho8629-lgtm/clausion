@@ -10,6 +10,13 @@ RUN npm ci
 
 # Copy source and build
 COPY . .
+
+# Set env vars at build time
+ARG VITE_API_URL=https://clausion-production.up.railway.app
+ARG VITE_LIVEKIT_URL=wss://clausion-3gmrm9tj.livekit.cloud
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_LIVEKIT_URL=$VITE_LIVEKIT_URL
+
 RUN npm run build
 
 # ── Stage 2: Serve with Nginx ────────────────────────
@@ -18,15 +25,13 @@ FROM nginx:alpine
 # Remove default config
 RUN rm /etc/nginx/conf.d/default.conf
 
-# Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom nginx config as template
+COPY nginx.conf /etc/nginx/nginx-template.conf
 
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-EXPOSE 80
+# Railway sets PORT env var (default 80)
+ENV PORT=80
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:80/ || exit 1
-
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/bin/sh", "-c", "envsubst '$PORT' < /etc/nginx/nginx-template.conf > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]

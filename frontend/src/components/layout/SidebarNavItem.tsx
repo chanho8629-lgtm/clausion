@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useSidebarStore } from '../../store/sidebarStore';
 
 interface SidebarNavItemProps {
   id: string;
@@ -11,12 +12,14 @@ interface SidebarNavItemProps {
 export default function SidebarNavItem({ label, icon, path, badge }: SidebarNavItemProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const closeMobile = useSidebarStore((s) => s.closeMobile);
 
   // 정확한 경로 매칭 — /operator/students 와 /operator/students/at-risk 중복 방지
   const isActive = location.pathname === path || location.pathname === path + '/';
 
   const handleClick = () => {
     navigate(path);
+    closeMobile();
   };
 
   return (

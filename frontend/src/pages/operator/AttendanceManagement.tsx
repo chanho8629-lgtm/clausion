@@ -173,12 +173,12 @@ export default function AttendanceManagement() {
               return (
                 <div key={r.id} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
                   <p className="text-sm font-medium text-slate-800">{r.studentName ?? `수강생 #${r.studentId}`}</p>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-wrap">
                     {statusOptions.map((opt) => (
                       <button
                         key={opt.value}
                         onClick={() => handleStatusChange(r.studentId, opt.value)}
-                        className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                        className={`px-2 sm:px-3 py-1 rounded-md text-xs font-bold transition-all ${
                           currentStatus === opt.value
                             ? opt.color + ' ring-2 ring-offset-1 ring-current'
                             : 'bg-slate-100 text-slate-400 hover:bg-slate-200'

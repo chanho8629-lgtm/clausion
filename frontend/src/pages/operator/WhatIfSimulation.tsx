@@ -64,9 +64,9 @@ export default function WhatIfSimulation() {
   };
 
   const scenarios = [
-    { value: 'ADD_CONSULTATION', label: '상담 배정', desc: '위험 수강생에게 교강사 1:1 상담을 배정하면 Twin 점수가 어떻게 변할까?' },
+    { value: 'ADD_CONSULTATION', label: '상담 배정', desc: '위험 수강생에게 강사 1:1 상담을 배정하면 Twin 점수가 어떻게 변할까?' },
     { value: 'ADD_SESSION', label: '보충 세션', desc: '난이도 높은 구간에 보충 수업을 추가하면 과정 수료율이 어떻게 변할까?' },
-    { value: 'REBALANCE_INSTRUCTOR', label: '교강사 재배정', desc: '과부하 교강사의 학생을 다른 교강사에게 이동하면 전체 성과가 어떻게 변할까?' },
+    { value: 'REBALANCE_INSTRUCTOR', label: '강사 재배정', desc: '과부하 강사의 학생을 다른 강사에게 이동하면 전체 성과가 어떻게 변할까?' },
   ];
 
   const scoreLabels: Record<string, string> = {
@@ -105,7 +105,7 @@ export default function WhatIfSimulation() {
 
       {/* Inputs */}
       <GlassCard className="p-5">
-        <div className="flex gap-4 items-end">
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
           <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700 mb-1">대상 수강생</label>
             <select

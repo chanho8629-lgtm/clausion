@@ -10,9 +10,9 @@ COPY gradle ./gradle
 # Download dependencies (cached layer)
 RUN gradle dependencies --no-daemon || true
 
-# Copy source and build
+# Force no-cache: v6
 COPY src ./src
-RUN gradle bootJar --no-daemon -x test
+RUN gradle bootJar --no-daemon -x test && ls -la build/libs/
 
 # ── Stage 2: Runtime ─────────────────────────────────
 FROM eclipse-temurin:17-jre-alpine
@@ -21,14 +21,11 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
 WORKDIR /app
 
-COPY --from=builder /app/build/libs/*.jar app.jar
+COPY --from=builder /app/build/libs/classpulse-0.0.1-SNAPSHOT.jar app.jar
 
 RUN chown appuser:appgroup app.jar
 USER appuser
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost:8080/actuator/health || exit 1
-
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Dapp.jwt.secret=${JWT_SECRET:-default-secret-key-change-in-production-must-be-at-least-256-bits-long} -Dapp.jwt.expiration=${JWT_EXPIRATION:-86400000} -jar app.jar"]

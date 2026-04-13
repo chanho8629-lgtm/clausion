@@ -2,6 +2,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import SidebarNavItem from './SidebarNavItem';
 import UserInfoFooter from './UserInfoFooter';
 import { useSidebarStore } from '../../store/sidebarStore';
+import { useCourses } from '../../hooks/useCourseId';
+import { useCourseStore } from '../../store/courseStore';
 
 interface SidebarProps {
   role: 'student' | 'instructor' | 'operator';
@@ -104,7 +106,7 @@ const operatorNav: NavSection[] = [
   {
     title: '횡단 분석',
     items: [
-      { id: 'instructors', label: '교강사 분석', icon: '📊', path: 'instructors' },
+      { id: 'instructors', label: '강사 분석', icon: '📊', path: 'instructors' },
       { id: 'intervention', label: '개입 지시', icon: '🚨', path: 'intervention' },
     ],
   },
@@ -143,19 +145,60 @@ const navByRole: Record<string, NavSection[]> = {
   operator: operatorNav,
 };
 
+function CourseSelector() {
+  const { data: courses = [] } = useCourses();
+  const { selectedCourseId, setSelectedCourseId } = useCourseStore();
+
+  if (courses.length === 0) return null;
+
+  const current = selectedCourseId ?? courses[0]?.id?.toString();
+
+  return (
+    <div className="px-3 py-2 border-b border-slate-100">
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1">과정</p>
+      <select
+        value={current ?? ''}
+        onChange={(e) => setSelectedCourseId(e.target.value)}
+        className="w-full px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-400 truncate"
+      >
+        {courses.map((c) => (
+          <option key={c.id} value={String(c.id)}>
+            {c.title}{c.enrollmentCount != null ? ` (${c.enrollmentCount}명)` : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export default function Sidebar({ role }: SidebarProps) {
-  const { isCollapsed, toggleSidebar } = useSidebarStore();
+  const { isCollapsed, toggleSidebar, isMobileOpen, closeMobile } = useSidebarStore();
   const navigate = useNavigate();
   const location = useLocation();
   const sections = navByRole[role] ?? studentNav;
   const rolePrefix = `/${role}`;
 
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    closeMobile();
+  };
+
   return (
-    <aside
-      className={`h-screen flex flex-col bg-white border-r border-slate-300 transition-all duration-200 ${
-        isCollapsed ? 'w-16' : 'w-60'
-      }`}
-    >
+    <>
+      {/* Mobile backdrop */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={closeMobile}
+        />
+      )}
+      <aside
+        className={`h-screen flex flex-col bg-white border-r border-slate-300 transition-all duration-200
+          fixed z-50 lg:static
+          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          ${isCollapsed ? 'w-16' : 'w-60'}
+        `}
+      >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 h-14 border-b border-slate-100 flex-shrink-0">
         {!isCollapsed && (
@@ -180,6 +223,9 @@ export default function Sidebar({ role }: SidebarProps) {
         </button>
       </div>
 
+      {/* Course Selector (instructor/student) */}
+      {(role === 'instructor' || role === 'student') && !isCollapsed && <CourseSelector />}
+
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
         {sections.map((section) => (
@@ -198,7 +244,7 @@ export default function Sidebar({ role }: SidebarProps) {
                     return (
                       <button
                         key={item.id}
-                        onClick={() => navigate(fullPath)}
+                        onClick={() => handleNavigate(fullPath)}
                         className={`w-full flex items-center justify-center p-2 rounded-lg transition-colors ${
                           isActive
                             ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/20'
@@ -229,5 +275,6 @@ export default function Sidebar({ role }: SidebarProps) {
       {/* Footer */}
       {!isCollapsed && <UserInfoFooter />}
     </aside>
+    </>
   );
 }

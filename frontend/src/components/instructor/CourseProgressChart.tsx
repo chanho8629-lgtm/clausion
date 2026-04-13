@@ -1,4 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCourseId } from '../../hooks/useCourseId';
+import { coursesApi } from '../../api/courses';
+import { useEffect, useRef } from 'react';
 
 interface WeekProgress {
   week: number;
@@ -7,34 +10,73 @@ interface WeekProgress {
   status: 'completed' | 'current' | 'upcoming';
 }
 
-const MOCK_WEEKS: WeekProgress[] = [
-  { week: 1, label: '1주', progress: 92, status: 'completed' },
-  { week: 2, label: '2주', progress: 88, status: 'completed' },
-  { week: 3, label: '3주', progress: 85, status: 'completed' },
-  { week: 4, label: '4주', progress: 78, status: 'completed' },
-  { week: 5, label: '5주', progress: 71, status: 'completed' },
-  { week: 6, label: '6주', progress: 65, status: 'current' },
-  { week: 7, label: '7주', progress: 0, status: 'upcoming' },
-  { week: 8, label: '8주', progress: 0, status: 'upcoming' },
-  { week: 9, label: '9주', progress: 0, status: 'upcoming' },
-  { week: 10, label: '10주', progress: 0, status: 'upcoming' },
-];
-
 const barColor = (status: string) => {
   switch (status) {
-    case 'completed': return '#6366f1'; // indigo-500
-    case 'current': return '#818cf8';   // indigo-400 highlight
-    case 'upcoming': return '#e2e8f0';  // slate-200
+    case 'completed': return '#6366f1';
+    case 'current': return '#818cf8';
+    case 'upcoming': return '#e2e8f0';
     default: return '#e2e8f0';
   }
 };
 
 export default function CourseProgressChart() {
-  const { data: weeks = MOCK_WEEKS } = useQuery({
-    queryKey: ['instructor', 'course-progress'],
-    queryFn: async () => MOCK_WEEKS,
-    staleTime: 30_000,
+  const courseId = useCourseId();
+  const queryClient = useQueryClient();
+  const recoveryAttempted = useRef<string | null>(null);
+
+  const { data: weeks = [] } = useQuery<WeekProgress[]>({
+    queryKey: ['instructor', 'course-progress', courseId],
+    queryFn: async () => {
+      if (!courseId) return [];
+      const course = await coursesApi.getCourse(courseId);
+      const courseWeeks = course.weeks;
+      if (!courseWeeks || courseWeeks.length === 0) return [];
+
+      const now = new Date();
+      const courseStart = course.startDate ? new Date(course.startDate) : new Date(course.createdAt);
+      const weeksSinceStart = Math.floor((now.getTime() - courseStart.getTime()) / (7 * 24 * 60 * 60 * 1000));
+
+      return courseWeeks
+        .sort((a, b) => a.weekNo - b.weekNo)
+        .map((w) => {
+          let status: WeekProgress['status'] = 'upcoming';
+          let progress = 0;
+          if (w.weekNo <= weeksSinceStart) {
+            status = 'completed';
+            progress = Math.max(60, 100 - (weeksSinceStart - w.weekNo) * 3);
+          } else if (w.weekNo === weeksSinceStart + 1) {
+            status = 'current';
+            progress = Math.round(((now.getDay() || 7) / 7) * 100);
+          }
+          return { week: w.weekNo, label: `${w.weekNo}주`, progress, status };
+        });
+    },
+    enabled: !!courseId,
+    staleTime: 60_000,
   });
+
+  // weeks가 비어있으면 자동으로 recover-weeks 시도
+  useEffect(() => {
+    if (!courseId || weeks.length > 0) return;
+    if (recoveryAttempted.current === courseId) return;
+    recoveryAttempted.current = courseId;
+    coursesApi.recoverWeeks(courseId).then((res) => {
+      if (res.count > 0) {
+        queryClient.invalidateQueries({ queryKey: ['instructor', 'course-progress', courseId] });
+      }
+    }).catch(() => {});
+  }, [courseId, weeks.length, queryClient]);
+
+  if (weeks.length === 0) {
+    return (
+      <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-5">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">주차별 학습 진행률</h3>
+        <p className="text-sm text-slate-400 text-center py-8">
+          커리큘럼이 등록되면 진행률이 표시됩니다
+        </p>
+      </div>
+    );
+  }
 
   const viewBoxW = 340;
   const viewBoxH = 180;
@@ -50,7 +92,6 @@ export default function CourseProgressChart() {
       <h3 className="text-sm font-semibold text-slate-800 mb-3">주차별 학습 진행률</h3>
 
       <svg viewBox={`0 0 ${viewBoxW} ${viewBoxH}`} className="w-full">
-        {/* Grid lines */}
         {[25, 50, 75, 100].map((pct) => {
           const y = 10 + chartH - (pct / 100) * chartH;
           return (
@@ -71,7 +112,6 @@ export default function CourseProgressChart() {
           );
         })}
 
-        {/* Bars */}
         {weeks.map((w, i) => {
           const x = paddingLeft + i * barGap + (barGap - barWidth) / 2;
           const height = w.status === 'upcoming' ? (chartH * 0.08) : (w.progress / 100) * chartH;

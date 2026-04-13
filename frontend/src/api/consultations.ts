@@ -2,8 +2,9 @@ import { api } from './client';
 import type { Consultation } from '../types';
 
 export const consultationsApi = {
-  getConsultations(role: 'student' | 'instructor' = 'student'): Promise<Consultation[]> {
-    return api.get<Consultation[]>(`/api/consultations?role=${role}`);
+  getConsultations(role: 'student' | 'instructor' = 'student', courseId?: string): Promise<Consultation[]> {
+    const params = courseId ? `&courseId=${courseId}` : '';
+    return api.get<Consultation[]>(`/api/consultations?role=${role}${params}`);
   },
 
   createConsultation(data: {
@@ -24,7 +25,11 @@ export const consultationsApi = {
     return api.get(`/api/consultations/${consultationId}/briefing`);
   },
 
-  requestConsultation(data: { courseId: number; reason?: string }): Promise<{ id: number; status: string }> {
+  scheduleConsultation(consultationId: string, scheduledAt: string): Promise<Consultation> {
+    return api.put<Consultation>(`/api/consultations/${consultationId}/schedule`, { scheduledAt });
+  },
+
+  requestConsultation(data: { courseId: number; message?: string }): Promise<{ id: number; status: string }> {
     return api.post('/api/consultations/request', data);
   },
 

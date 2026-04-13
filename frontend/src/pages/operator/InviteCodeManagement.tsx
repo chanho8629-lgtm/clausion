@@ -164,7 +164,7 @@ export default function InviteCodeManagement() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="text-xs text-slate-500 bg-slate-50/60 border-b border-slate-100">
                   <th className="text-left px-5 py-2.5 font-semibold">코드</th>
@@ -184,21 +184,36 @@ export default function InviteCodeManagement() {
                       key={code.id}
                       className="border-b border-slate-50 hover:bg-slate-50/40 transition-colors"
                     >
-                      {/* 코드 — 클릭하면 클립보드 복사 */}
                       <td className="px-5 py-3">
-                        <button
-                          type="button"
-                          title="클릭하여 복사"
-                          onClick={() => handleCopyCode(code)}
-                          className="group flex items-center gap-2 focus:outline-none"
-                        >
-                          <span className="font-mono text-sm font-bold tracking-widest text-slate-900 bg-slate-100 group-hover:bg-indigo-50 group-hover:text-indigo-700 px-2.5 py-1 rounded-md transition-colors select-all">
-                            {code.code}
-                          </span>
-                          <span className="text-[10px] font-medium text-slate-400 group-hover:text-indigo-500 transition-colors whitespace-nowrap">
-                            {copiedId === code.id ? '복사됨!' : '복사'}
-                          </span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            title="클릭하여 복사"
+                            onClick={() => handleCopyCode(code)}
+                            className="group flex items-center gap-2 focus:outline-none"
+                          >
+                            <span className="font-mono text-sm font-bold tracking-widest text-slate-900 bg-slate-100 group-hover:bg-indigo-50 group-hover:text-indigo-700 px-2.5 py-1 rounded-md transition-colors select-all">
+                              {code.code}
+                            </span>
+                            <span className="text-[10px] font-medium text-slate-400 group-hover:text-indigo-500 transition-colors whitespace-nowrap">
+                              {copiedId === code.id ? '복사됨!' : '복사'}
+                            </span>
+                          </button>
+                          {!code.isUsed && !isExpired(code.expiresAt) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = `${window.location.origin}/operator/login`;
+                                navigator.clipboard.writeText(`운영자 초대 코드: ${code.code}\n가입 링크: ${url}`);
+                                setCopiedId(code.id);
+                                setTimeout(() => setCopiedId(null), 2000);
+                              }}
+                              className="px-2 py-0.5 text-[10px] font-medium rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                            >
+                              코드+링크
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3">{statusBadge(status)}</td>
                       <td className="px-5 py-3 text-sm text-slate-600">

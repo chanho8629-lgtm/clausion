@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 
 interface NoteEntry {
   id: string;
@@ -6,15 +6,31 @@ interface NoteEntry {
   content: string;
 }
 
-const MOCK_NOTES: NoteEntry[] = [
-  { id: 'n1', timestamp: '10:02:15', content: '학생이 React 상태 관리에 대한 혼란 표현' },
-  { id: 'n2', timestamp: '10:05:42', content: 'useEffect 의존성 배열 개념 재설명 필요' },
-  { id: 'n3', timestamp: '10:08:30', content: '실습 과제 어려움 호소 - 단계별 접근 방법 안내' },
-];
+interface LiveNotesProps {
+  consultationId?: string;
+}
 
-export default function LiveNotes() {
-  const [notes, setNotes] = useState<NoteEntry[]>(MOCK_NOTES);
+export default function LiveNotes({ consultationId }: LiveNotesProps) {
+  const [notes, setNotes] = useState<NoteEntry[]>([]);
   const [input, setInput] = useState('');
+
+  const saveNotesToServer = useCallback(async (allNotes: NoteEntry[]) => {
+    if (!consultationId) return;
+    try {
+      const BASE_URL = import.meta.env.VITE_API_URL ?? '';
+      const jwt = localStorage.getItem('token');
+      await fetch(`${BASE_URL}/api/consultations/${consultationId}/notes`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+        },
+        body: JSON.stringify({ notes: allNotes.map((n) => `[${n.timestamp}] ${n.content}`).join('\n') }),
+      });
+    } catch {
+      // Best-effort save
+    }
+  }, [consultationId]);
 
   const addNote = () => {
     if (!input.trim()) return;
@@ -25,11 +41,13 @@ export default function LiveNotes() {
       second: '2-digit',
       hour12: false,
     });
-    setNotes((prev) => [
-      ...prev,
+    const newNotes = [
+      ...notes,
       { id: `n-${Date.now()}`, timestamp, content: input.trim() },
-    ]);
+    ];
+    setNotes(newNotes);
     setInput('');
+    saveNotesToServer(newNotes);
   };
 
   return (
@@ -39,6 +57,9 @@ export default function LiveNotes() {
       </h4>
 
       <div className="flex-1 overflow-y-auto space-y-2 mb-3">
+        {notes.length === 0 && (
+          <p className="text-xs text-slate-500 text-center py-4">메모를 추가하세요</p>
+        )}
         {notes.map((note) => (
           <div key={note.id} className="flex gap-2 text-xs">
             <span

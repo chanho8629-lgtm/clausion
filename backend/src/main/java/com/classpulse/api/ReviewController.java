@@ -55,21 +55,28 @@ public class ReviewController {
     // --- Endpoints ---
 
     @GetMapping("/today")
-    public ResponseEntity<List<ReviewTaskResponse>> today() {
+    public ResponseEntity<List<ReviewTaskResponse>> today(
+            @RequestParam(required = false) Long courseId) {
         Long userId = SecurityUtil.getCurrentUserId();
         LocalDate today = LocalDate.now();
         LocalDateTime startOfDay = today.atStartOfDay();
         LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
 
-        // Fetch active tasks scheduled for today or earlier (includes overdue)
-        List<ReviewTask> activeTasks = reviewTaskRepository
+        // Fetch pending/in-progress tasks scheduled for today or earlier (includes overdue)
+        List<ReviewTask> activeTasks = new ArrayList<>(reviewTaskRepository
                 .findByStudentIdAndScheduledForLessThanEqualAndStatusIn(
-                        userId, today, List.of("PENDING", "IN_PROGRESS"));
+                        userId, today, List.of("PENDING", "IN_PROGRESS")));
+
+        // Filter by courseId if provided
+        if (courseId != null) {
+            activeTasks = new ArrayList<>(activeTasks.stream().filter(t -> t.getCourse().getId().equals(courseId)).toList());
+        }
 
         // If no active tasks exist, auto-generate from enrolled courses
         if (activeTasks.isEmpty()) {
             var enrollments = enrollmentRepository.findByStudentIdAndStatus(userId, "ACTIVE");
             for (var enrollment : enrollments) {
+                if (courseId != null && !enrollment.getCourse().getId().equals(courseId)) continue;
                 List<ReviewTask> generated = reviewScheduler.generateReviewTasks(userId, enrollment.getCourse().getId());
                 activeTasks.addAll(generated);
             }
@@ -127,25 +134,34 @@ public class ReviewController {
     }
 
     @GetMapping("/week")
-    public ResponseEntity<List<ReviewTaskResponse>> week() {
+    public ResponseEntity<List<ReviewTaskResponse>> week(
+            @RequestParam(required = false) Long courseId) {
         Long userId = SecurityUtil.getCurrentUserId();
         LocalDate today = LocalDate.now();
         LocalDate weekStart = today.minusDays(6);
         List<ReviewTask> tasks = reviewTaskRepository
                 .findByStudentIdAndScheduledForBetweenOrderByScheduledFor(userId, weekStart, today);
+        if (courseId != null) {
+            tasks = tasks.stream().filter(t -> t.getCourse().getId().equals(courseId)).toList();
+        }
         return ResponseEntity.ok(tasks.stream().map(ReviewTaskResponse::from).toList());
     }
 
     public record WeekDaySummary(String date, String dayLabel, int total, int completed, String status) {}
 
     @GetMapping("/week-summary")
-    public ResponseEntity<List<WeekDaySummary>> weekSummary() {
+    public ResponseEntity<List<WeekDaySummary>> weekSummary(
+            @RequestParam(required = false) Long courseId) {
         Long userId = SecurityUtil.getCurrentUserId();
         LocalDate today = LocalDate.now();
         LocalDate weekStart = today.minusDays(6);
 
         List<ReviewTask> tasks = reviewTaskRepository
                 .findByStudentIdAndScheduledForBetweenOrderByScheduledFor(userId, weekStart, today);
+
+        if (courseId != null) {
+            tasks = tasks.stream().filter(t -> t.getCourse().getId().equals(courseId)).toList();
+        }
 
         // Group tasks by date
         Map<LocalDate, List<ReviewTask>> byDate = tasks.stream()

@@ -11,7 +11,7 @@ export const coursesApi = {
     return api.get<Course>(`/api/courses/${courseId}`);
   },
 
-  createCourse(data: { title: string; description: string; schedule?: string; classTime?: string }): Promise<Course> {
+  createCourse(data: { title: string; description: string; schedule?: string; classTime?: string; startDate?: string; endDate?: string }): Promise<Course> {
     return api.post<Course>('/api/courses', data);
   },
 
@@ -39,6 +39,13 @@ export const coursesApi = {
     });
   },
 
+  analyzeCurriculumText(
+    courseId: string,
+    data: { courseName: string; target?: string; additionalPrompt?: string },
+  ): Promise<{ jobId: number }> {
+    return api.post<{ jobId: number }>(`/api/courses/${courseId}/curriculum/analyze-text`, data);
+  },
+
   enrollInCourse(courseId: string): Promise<void> {
     return api.post<void>(`/api/courses/${courseId}/enroll`);
   },
@@ -61,5 +68,13 @@ export const coursesApi = {
 
   deleteSkill(courseId: string, skillId: string): Promise<void> {
     return api.delete<void>(`/api/courses/${courseId}/skills/${skillId}`);
+  },
+
+  createDefaultSkills(courseId: string): Promise<CurriculumSkill[]> {
+    return api.post<CurriculumSkill[]>(`/api/courses/${courseId}/skills/defaults`);
+  },
+
+  recoverWeeks(courseId: string): Promise<{ message: string; count: number }> {
+    return api.post(`/api/courses/${courseId}/curriculum/recover-weeks`);
   },
 };

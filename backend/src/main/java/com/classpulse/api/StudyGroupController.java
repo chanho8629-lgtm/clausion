@@ -239,6 +239,65 @@ public class StudyGroupController {
         return ResponseEntity.noContent().build();
     }
 
+    @DeleteMapping("/{id}/members/{studentId}")
+    @Transactional
+    public ResponseEntity<Void> kickMember(@PathVariable Long id, @PathVariable Long studentId) {
+        Long userId = SecurityUtil.getCurrentUserId();
+
+        StudyGroup group = studyGroupRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Study group not found: " + id));
+
+        // 방장만 강퇴 가능
+        boolean isLeader = group.getMembers().stream()
+                .anyMatch(m -> m.getStudent().getId().equals(userId) && "LEADER".equals(m.getRole()));
+        if (!isLeader) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // 자기 자신은 강퇴 불가
+        if (userId.equals(studentId)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        StudyGroupMember target = group.getMembers().stream()
+                .filter(m -> m.getStudent().getId().equals(studentId))
+                .findFirst().orElse(null);
+        if (target == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String targetName = target.getStudent().getName();
+        group.getMembers().remove(target);
+        studyGroupRepository.save(group);
+        broadcastSystemMessage(group, targetName + "님이 그룹에서 내보내졌습니다.");
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    @Transactional
+    public ResponseEntity<Void> deleteGroup(@PathVariable Long id) {
+        Long userId = SecurityUtil.getCurrentUserId();
+
+        StudyGroup group = studyGroupRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Study group not found: " + id));
+
+        // 방장만 삭제 가능
+        boolean isLeader = group.getMembers().stream()
+                .anyMatch(m -> m.getStudent().getId().equals(userId) && "LEADER".equals(m.getRole()));
+        if (!isLeader) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // 자기밖에 없어야 삭제 가능
+        if (group.getMembers().size() > 1) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+
+        studyGroupRepository.delete(group);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/my")
     public ResponseEntity<List<StudyGroupResponse>> myGroups() {
         Long userId = SecurityUtil.getCurrentUserId();

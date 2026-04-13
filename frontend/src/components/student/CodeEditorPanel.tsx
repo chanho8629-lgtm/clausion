@@ -13,43 +13,6 @@ import { codeAnalysisApi } from '../../api/codeAnalysis';
 import { pollJob } from '../../api/jobs';
 import { useCourseId } from '../../hooks/useCourseId';
 import CodeAIFeedbackSidebar from './CodeAIFeedbackSidebar';
-import type { CodeFeedback } from '../../types';
-
-const MOCK_FEEDBACKS: CodeFeedback[] = [
-  {
-    id: 'f1',
-    submissionId: 'sub1',
-    lineNumber: 3,
-    endLineNumber: 3,
-    severity: 'WARNING',
-    message: 'let 대신 const를 사용하세요. result는 재할당되지 않습니다.',
-    suggestion: 'const result = [];',
-    twinLinked: false,
-    twinSkillId: null,
-  },
-  {
-    id: 'f2',
-    submissionId: 'sub1',
-    lineNumber: 4,
-    endLineNumber: 6,
-    severity: 'INFO',
-    message: 'filter + map 조합으로 더 간결하게 작성할 수 있어요.',
-    suggestion: 'return arr.filter(x => x > 0).map(x => x * 2);',
-    twinLinked: true,
-    twinSkillId: 'sk1',
-  },
-  {
-    id: 'f3',
-    submissionId: 'sub1',
-    lineNumber: 1,
-    endLineNumber: 1,
-    severity: 'GOOD',
-    message: '함수 이름이 명확하고 좋습니다.',
-    suggestion: '',
-    twinLinked: false,
-    twinSkillId: null,
-  },
-];
 
 // ── Line highlight decorations ──────────────────────────────
 
@@ -162,7 +125,7 @@ const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorViewRef = useRef<EditorView | null>(null);
 
-  const displayFeedbacks = feedbacks.length > 0 ? feedbacks : MOCK_FEEDBACKS;
+  const displayFeedbacks = feedbacks;
 
   // Compute highlighted lines from feedbacks
   const { warningLines, errorLines } = useMemo(() => {
@@ -234,10 +197,7 @@ const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
   }, [warningLines, errorLines, activeLineHighlight]);
 
   const handleAnalyze = async () => {
-    if (!courseId) {
-      setFeedbacks(MOCK_FEEDBACKS);
-      return;
-    }
+    if (!courseId) return;
     setIsSubmitting(true);
     try {
       const submission = await codeAnalysisApi.submitCode({
@@ -253,15 +213,13 @@ const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
       if (job.status === 'COMPLETED') {
         // Fetch the actual AI-generated feedbacks
         const feedbacks = await codeAnalysisApi.getFeedback(String(submission.submissionId));
-        setFeedbacks(feedbacks.length > 0 ? feedbacks : MOCK_FEEDBACKS);
+        setFeedbacks(feedbacks);
       } else {
-        // Job failed, fall back to mock
+        // Job failed
         console.error('Code analysis job failed:', job.errorMessage);
-        setFeedbacks(MOCK_FEEDBACKS);
       }
     } catch (err) {
       console.error('Code analysis error:', err);
-      setFeedbacks(MOCK_FEEDBACKS);
     } finally {
       setIsSubmitting(false);
     }
@@ -274,8 +232,8 @@ const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
       className="rounded-2xl bg-white shadow-sm border border-slate-100 overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2 sm:gap-3">
           <h2 className="text-sm font-bold text-slate-900">코드 에디터</h2>
           <select
             value={language}
@@ -322,12 +280,12 @@ const CodeEditorPanel: React.FC<CodeEditorPanelProps> = ({
       </div>
 
       {/* Editor + Sidebar */}
-      <div className="flex" style={{ minHeight: 320, maxHeight: 1000 }}>
+      <div className="flex flex-col sm:flex-row" style={{ minHeight: 280, maxHeight: 1000 }}>
         {/* CodeMirror Editor */}
         <div
           ref={editorContainerRef}
           className="flex-1 overflow-auto bg-slate-900"
-          style={{ minHeight: 320, maxHeight: 1000 }}
+          style={{ minHeight: 240 }}
         />
 
         {/* AI Feedback Sidebar */}

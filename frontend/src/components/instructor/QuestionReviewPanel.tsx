@@ -1,14 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { questionsApi } from '../../api/questions';
+import { coursesApi } from '../../api/courses';
 import { useCourseId } from '../../hooks/useCourseId';
 import TagChip from '../common/TagChip';
-
-const SKILL_NAMES: Record<string, string> = {
-  s1: 'React Hooks',
-  s2: 'TypeScript 제네릭',
-  s3: '배열 알고리즘',
-};
 
 const difficultyLabel = (d: number) => {
   if (d <= 2) return { text: '기초', color: 'emerald' as const };
@@ -29,6 +24,15 @@ export default function QuestionReviewPanel() {
   });
 
   const [errorId, setErrorId] = useState<string | null>(null);
+
+  const { data: skills = [] } = useQuery({
+    queryKey: ['course-skills', courseId],
+    queryFn: () => coursesApi.getSkills(courseId!),
+    enabled: !!courseId,
+    staleTime: 60_000,
+  });
+
+  const skillNameMap = Object.fromEntries(skills.map((s) => [String(s.id), s.name]));
 
   const approveMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'APPROVED' | 'REJECTED' }) => {
@@ -65,7 +69,7 @@ export default function QuestionReviewPanel() {
               <p className="text-sm text-slate-700 leading-relaxed">{q.content}</p>
 
               <div className="flex items-center gap-2 flex-wrap">
-                <TagChip label={SKILL_NAMES[q.skillId] ?? q.skillId} color="indigo" size="sm" />
+                <TagChip label={skillNameMap[q.skillId] ?? `스킬 #${q.skillId}`} color="indigo" size="sm" />
                 <TagChip label={diff.text} color={diff.color} size="sm" />
                 <TagChip label={q.questionType} color="slate" size="sm" />
               </div>

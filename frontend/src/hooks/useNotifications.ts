@@ -12,11 +12,15 @@ interface UseNotificationsReturn {
   clearAll: () => void;
 }
 
+const MAX_RETRIES = 5;
+const BASE_DELAY = 5_000; // 5s
+
 export function useNotifications(): UseNotificationsReturn {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retriesRef = useRef(0);
 
   const prependNotification = useCallback((notification: Notification) => {
     setNotifications((prev) => {
@@ -53,6 +57,7 @@ export function useNotifications(): UseNotificationsReturn {
 
   const connect = useCallback(() => {
     const token = localStorage.getItem('token');
+    if (!token) return; // 토큰 없으면 연결하지 않음
 
     // Build SSE URL with token as query param (EventSource does not support headers)
     const url = `${toApiUrl('/api/notifications/stream')}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
@@ -62,6 +67,7 @@ export function useNotifications(): UseNotificationsReturn {
 
     es.onopen = () => {
       setIsConnected(true);
+      retriesRef.current = 0; // 성공 시 재시도 카운터 리셋
     };
 
     es.onmessage = (event) => {
@@ -69,11 +75,10 @@ export function useNotifications(): UseNotificationsReturn {
         const notification: Notification = JSON.parse(event.data);
         prependNotification(notification);
       } catch {
-        // Ignore unparseable messages (e.g. heartbeat pings)
+        // heartbeat 등 무시
       }
     };
 
-    // Handle named event types
     es.addEventListener('notification', (event) => {
       try {
         const notification: Notification = JSON.parse(
@@ -86,7 +91,6 @@ export function useNotifications(): UseNotificationsReturn {
     });
 
     es.addEventListener('init', (event) => {
-      // Server may send initial batch of unread notifications
       try {
         const batch: Notification[] = JSON.parse(
           (event as MessageEvent).data,
@@ -104,10 +108,19 @@ export function useNotifications(): UseNotificationsReturn {
       es.close();
       eventSourceRef.current = null;
 
-      // Reconnect after 5 seconds
+      // 최대 재시도 횟수 초과 시 중단
+      if (retriesRef.current >= MAX_RETRIES) {
+        console.warn('[SSE] Max retries reached, stopping reconnection');
+        return;
+      }
+
+      // 지수 백오프: 5s, 10s, 20s, 40s, 80s
+      const delay = BASE_DELAY * Math.pow(2, retriesRef.current);
+      retriesRef.current += 1;
+
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
-      }, 5000);
+      }, delay);
     };
   }, [hydrateNotifications, prependNotification]);
 

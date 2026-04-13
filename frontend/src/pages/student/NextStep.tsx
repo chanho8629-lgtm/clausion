@@ -8,75 +8,6 @@ import { useAuthStore } from '../../store/authStore';
 import type { Recommendation } from '../../types';
 import { getRecommendationAction } from '../../utils/recommendations';
 
-const MOCK_RECS: Recommendation[] = [
-  {
-    id: 'r1',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'review',
-    title: '재귀 함수 복습 미니퀴즈',
-    reasonSummary: '망각 곡선 기반 - 3일 후 기억 잔존율 38%',
-    triggerEvent: 'forgetting_curve',
-    expectedOutcome: '기억 정착률 40% 향상 예상',
-    createdAt: '2026-04-08T09:00:00Z',
-  },
-  {
-    id: 'r2',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'practice',
-    title: '정렬 알고리즘 코딩 연습',
-    reasonSummary: '지난 과제 수행력 부족 - 버블소트 구현 실패',
-    triggerEvent: 'weak_skill',
-    expectedOutcome: '수행력 점수 15점 상승 예상',
-    createdAt: '2026-04-08T08:00:00Z',
-  },
-  {
-    id: 'r3',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'consultation',
-    title: '강사 상담 예약',
-    reasonSummary: '학습 자신감 하락 추세 감지',
-    triggerEvent: 'confidence_drop',
-    expectedOutcome: '맞춤 학습 전략 수립',
-    createdAt: '2026-04-08T07:00:00Z',
-  },
-  {
-    id: 'r4',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'review',
-    title: '리스트 컴프리헨션 심화',
-    reasonSummary: '기초는 이해했으나 중첩 컴프리헨션 연습 부족',
-    triggerEvent: 'skill_gap',
-    expectedOutcome: '이해도 점수 20점 향상 예상',
-    createdAt: '2026-04-07T09:00:00Z',
-  },
-  {
-    id: 'r5',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'practice',
-    title: '딕셔너리 활용 문제 풀기',
-    reasonSummary: '최근 과제에서 딕셔너리 활용 미숙',
-    triggerEvent: 'weak_skill',
-    expectedOutcome: '실습 점수 12점 상승 예상',
-    createdAt: '2026-04-07T08:00:00Z',
-  },
-  {
-    id: 'r6',
-    studentId: 's1',
-    courseId: 'c1',
-    recommendationType: 'resource',
-    title: '시각화 학습 자료 추천',
-    reasonSummary: '시각적 학습 스타일에 맞는 자료 발견',
-    triggerEvent: 'learning_style',
-    expectedOutcome: '이해 효율 30% 향상 예상',
-    createdAt: '2026-04-06T09:00:00Z',
-  },
-];
-
 const TYPE_CONFIG: Record<
   string,
   { label: string; icon: string; accent: string; accentBg: string }
@@ -124,14 +55,13 @@ const NextStep: React.FC = () => {
   const studentId = user?.id?.toString() ?? '';
   const courseId = useCourseId();
 
-  const { data: recs } = useQuery<Recommendation[]>({
+  const { data: recs = [] } = useQuery<Recommendation[]>({
     queryKey: ['recommendations', studentId, courseId],
     queryFn: () => recommendationsApi.getRecommendations(studentId, courseId),
     enabled: !!studentId,
-    placeholderData: MOCK_RECS,
   });
 
-  const list = recs ?? MOCK_RECS;
+  const list = recs;
   const filtered =
     filter === 'all'
       ? list
@@ -140,15 +70,15 @@ const NextStep: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-3">
-          <h1 className="text-xl font-bold text-slate-900">다음 단계 추천</h1>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900">다음 단계 추천</h1>
           <p className="text-xs text-slate-500">
             AI가 분석한 최적의 학습 경로를 확인하세요
           </p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Object.entries(TYPE_CONFIG).map(([key, config]) => {

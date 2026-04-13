@@ -44,8 +44,8 @@ const ConsultationPage: React.FC = () => {
   const [requestReason, setRequestReason] = useState('');
 
   const { data: consultations, isLoading } = useQuery<Consultation[]>({
-    queryKey: ['consultations', 'student'],
-    queryFn: () => consultationsApi.getConsultations('student'),
+    queryKey: ['consultations', 'student', courseId],
+    queryFn: () => consultationsApi.getConsultations('student', courseId),
   });
 
   const [rejectModal, setRejectModal] = useState<{ id: string; title?: string } | null>(null);
@@ -54,7 +54,7 @@ const ConsultationPage: React.FC = () => {
   const requestMutation = useMutation({
     mutationFn: () => consultationsApi.requestConsultation({
       courseId: Number(courseId),
-      reason: requestReason || undefined,
+      message: requestReason || undefined,
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['consultations'] });
@@ -85,7 +85,7 @@ const ConsultationPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-slate-900">상담 관리</h1>
             <p className="text-xs text-slate-500">
@@ -103,7 +103,7 @@ const ConsultationPage: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Request form */}
         {showRequestForm && (
           <motion.div
@@ -111,7 +111,7 @@ const ConsultationPage: React.FC = () => {
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl bg-indigo-50 border border-indigo-200 p-5"
           >
-            <h3 className="text-sm font-bold text-indigo-800 mb-2">교강사에게 상담 요청</h3>
+            <h3 className="text-sm font-bold text-indigo-800 mb-2">강사에게 상담 요청</h3>
             <textarea
               value={requestReason}
               onChange={(e) => setRequestReason(e.target.value)}
@@ -134,9 +134,19 @@ const ConsultationPage: React.FC = () => {
           <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5">
             <h3 className="text-sm font-bold text-amber-800 mb-2">요청 대기 중인 상담</h3>
             {requestedConsultations.map((c) => (
-              <p key={c.id} className="text-xs text-amber-700">
-                {c.courseTitle ?? '과정'} — 교강사 확인 대기 중
-              </p>
+              <div key={c.id} className="flex items-center gap-2 py-1">
+                <span className="text-xs font-medium text-amber-800">
+                  {c.courseTitle ?? '과정'}
+                </span>
+                <span className="text-xs text-amber-600">
+                  {c.instructorName ? `${c.instructorName} 강사님` : '강사'} 에게 요청
+                </span>
+                {c.notes && (
+                  <span className="text-xs text-amber-500 truncate max-w-[200px]">
+                    — {c.notes}
+                  </span>
+                )}
+              </div>
             ))}
           </div>
         )}

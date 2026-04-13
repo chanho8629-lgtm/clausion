@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { coursesApi } from '../api/courses';
+import { useCourseStore } from '../store/courseStore';
 import type { Course } from '../types';
 import { useAuthStore } from '../store/authStore';
 
@@ -22,11 +23,26 @@ export function useCourseId(): string | undefined {
     enabled: role === 'STUDENT',
     staleTime: 5 * 60 * 1000,
   });
+  const { selectedCourseId, setSelectedCourseId } = useCourseStore();
 
   if (role === 'STUDENT') {
     const activeEnrollment = enrollments.find((enrollment) => enrollment.status === 'ACTIVE');
     return activeEnrollment?.courseId?.toString();
   }
 
-  return courses?.[0]?.id?.toString();
+  // If a course is explicitly selected and it still exists in the list, use it
+  if (selectedCourseId && courses?.some((c) => String(c.id) === selectedCourseId)) {
+    return selectedCourseId;
+  }
+
+  // Auto-select the first course with enrollments, or just the first one
+  const fallback = courses?.find((c) => (c.enrollmentCount ?? 0) > 0) ?? courses?.[0];
+  const fallbackId = fallback?.id?.toString();
+
+  // Persist the auto-selected course
+  if (fallbackId && fallbackId !== selectedCourseId) {
+    setSelectedCourseId(fallbackId);
+  }
+
+  return fallbackId;
 }

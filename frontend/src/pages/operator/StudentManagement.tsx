@@ -24,7 +24,8 @@ export default function StudentManagement() {
         <p className="text-sm text-slate-400">로딩 중...</p>
       ) : (
         <GlassCard className="overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50">
                 <th className="text-left p-4 font-semibold text-slate-600">이름</th>
@@ -59,6 +60,7 @@ export default function StudentManagement() {
               )}
             </tbody>
           </table>
+          </div>
         </GlassCard>
       )}
     </div>

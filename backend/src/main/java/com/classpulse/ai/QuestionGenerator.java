@@ -158,24 +158,26 @@ public class QuestionGenerator {
         Map<String, CurriculumSkill> skillMap = skills.stream()
                 .collect(Collectors.toMap(CurriculumSkill::getName, s -> s, (a, b) -> a));
 
+        String skillInstruction = skills.size() == 1
+                ? String.format("'%s' 스킬에 집중하여 %d개의 문제를 생성하세요. 이 스킬의 다양한 측면을 다루되, 5가지 문제 유형을 골고루 배분하세요.", skills.get(0).getName(), count)
+                : String.format("위 스킬들을 기반으로 %d개의 문제를 생성하세요. 난이도 '%s'에 맞춰 출제하되, 5가지 문제 유형을 골고루 배분하세요.", count, difficulty);
+
         String userPrompt = String.format("""
                 ## 강의 정보
                 - 강의명: %s
                 - 요청 난이도: %s
                 - 요청 문제 수: %d
 
-                ## 커리큘럼 스킬 목록
+                ## 대상 스킬 목록
                 %s
 
-                위 스킬들을 기반으로 %d개의 문제를 생성하세요.
-                난이도 '%s'에 맞춰 출제하되, 5가지 문제 유형을 골고루 배분하세요.
+                %s
                 """,
                 course.getTitle(),
                 difficulty,
                 count,
                 skillList,
-                count,
-                difficulty
+                skillInstruction
         );
 
         Map<String, Object> gptResponse = callGpt4o(SYSTEM_PROMPT, userPrompt);

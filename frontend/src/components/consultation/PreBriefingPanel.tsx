@@ -13,25 +13,16 @@ interface BriefingData {
   suggestedQuestions: string[];
 }
 
-const MOCK_BRIEFING: BriefingData = {
-  studentName: '정예린',
+const EMPTY_BRIEFING: BriefingData = {
+  studentName: '',
   scores: {
-    understanding: 42,
-    confidence: 35,
-    execution: 48,
-    forgettingRisk: 78,
+    understanding: 0,
+    confidence: 0,
+    execution: 0,
+    forgettingRisk: 0,
   },
-  weakSkills: [
-    'React 상태 관리 패턴',
-    'TypeScript 제네릭 타입 활용',
-    '비동기 데이터 처리 (Promise, async/await)',
-    'CSS Flexbox/Grid 레이아웃',
-  ],
-  suggestedQuestions: [
-    '최근 과제에서 어려웠던 부분이 무엇인지 구체적으로 이야기해볼까요?',
-    '학습 시 가장 자신감이 떨어지는 순간은 언제인가요?',
-    '이번 주 복습 계획을 함께 세워볼까요?',
-  ],
+  weakSkills: [],
+  suggestedQuestions: [],
 };
 
 function ScoreCell({ label, value }: { label: string; value: number }) {
@@ -49,25 +40,28 @@ function ScoreCell({ label, value }: { label: string; value: number }) {
 }
 
 export default function PreBriefingPanel({ consultationId }: { consultationId?: string }) {
-  const { data: briefing = MOCK_BRIEFING } = useQuery({
+  const { data: briefing = EMPTY_BRIEFING } = useQuery({
     queryKey: ['consultation', 'briefing', consultationId],
     queryFn: async () => {
-      if (!consultationId) return MOCK_BRIEFING;
+      if (!consultationId) return EMPTY_BRIEFING;
       try {
         const apiData = await consultationsApi.getConsultationBriefing(consultationId);
-        // API 응답을 BriefingData 인터페이스로 매핑
         return {
-          studentName: MOCK_BRIEFING.studentName, // API에 studentName 없으면 mock 유지
-          scores: MOCK_BRIEFING.scores, // API에 scores 없으면 mock 유지
-          weakSkills: apiData.riskAreas?.length > 0 ? apiData.riskAreas : MOCK_BRIEFING.weakSkills,
-          suggestedQuestions: apiData.suggestedTopics?.length > 0 ? apiData.suggestedTopics : MOCK_BRIEFING.suggestedQuestions,
+          studentName: (apiData as any).studentName ?? '',
+          scores: {
+            understanding: (apiData as any).scores?.understanding ?? 0,
+            confidence: (apiData as any).scores?.confidence ?? 0,
+            execution: (apiData as any).scores?.execution ?? 0,
+            forgettingRisk: (apiData as any).scores?.forgettingRisk ?? 0,
+          },
+          weakSkills: apiData.riskAreas ?? [],
+          suggestedQuestions: apiData.suggestedTopics ?? [],
         };
       } catch {
-        return MOCK_BRIEFING;
+        return EMPTY_BRIEFING;
       }
     },
     enabled: !!consultationId,
-    placeholderData: MOCK_BRIEFING,
     staleTime: 60_000,
   });
 
@@ -75,10 +69,10 @@ export default function PreBriefingPanel({ consultationId }: { consultationId?: 
     <div className="h-full bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl p-5 text-white">
       <div className="flex items-center gap-3 mb-5">
         <div className="w-10 h-10 rounded-full bg-indigo-500/30 flex items-center justify-center text-sm font-bold text-indigo-300">
-          {briefing.studentName.charAt(0)}
+          {briefing.studentName ? briefing.studentName.charAt(0) : '?'}
         </div>
         <div>
-          <h3 className="text-sm font-semibold">{briefing.studentName}</h3>
+          <h3 className="text-sm font-semibold">{briefing.studentName || '학생'}</h3>
           <span className="text-[11px] text-slate-400">AI 상담 브리핑</span>
         </div>
       </div>

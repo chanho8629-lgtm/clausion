@@ -53,13 +53,13 @@ export default function Students() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <h1 className="text-base font-bold text-slate-800">학생 관리</h1>
           <p className="text-xs text-slate-500">총 {students.length}명 · 위험 {counts.danger}명 · 주의 {counts.caution}명</p>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-6">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* Controls */}
         <div className="flex items-center gap-3 mb-6 flex-wrap">
           <input

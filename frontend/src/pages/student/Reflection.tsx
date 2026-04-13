@@ -11,7 +11,6 @@ interface ReflectionForm {
   todayContent: string;
   stuckPoint: string;
   confidence: number;
-  revisitConcept: string;
   freeText: string;
 }
 
@@ -19,7 +18,6 @@ const initialForm: ReflectionForm = {
   todayContent: '',
   stuckPoint: '',
   confidence: 3,
-  revisitConcept: '',
   freeText: '',
 };
 
@@ -34,13 +32,13 @@ const Reflection: React.FC = () => {
   // Fetch Twin data for AI sidebar (replaces hardcoded constants)
   const { data: twin } = useQuery({
     queryKey: ['twin', studentId, courseId],
-    queryFn: () => twinApi.getStudentTwin(studentId),
+    queryFn: () => twinApi.getStudentTwin(studentId, courseId),
     enabled: !!studentId,
   });
 
   const { data: prevReflections } = useQuery({
-    queryKey: ['reflections', studentId],
-    queryFn: () => reflectionsApi.getReflections(studentId),
+    queryKey: ['reflections', studentId, courseId],
+    queryFn: () => reflectionsApi.getReflections(studentId, courseId),
     enabled: !!studentId,
   });
 
@@ -64,12 +62,11 @@ const Reflection: React.FC = () => {
 
   const mutation = useMutation({
     mutationFn: () => {
-      if (!courseId) throw new Error('코스가 선택되지 않았습니다');
+      if (!courseId) throw new Error('과정이 선택되지 않았습니다');
       return reflectionsApi.createReflection({
         courseId: Number(courseId),
         content: [
           `[오늘 학습] ${form.todayContent}`,
-          `[다시 볼 개념] ${form.revisitConcept}`,
           `[자유 성찰] ${form.freeText}`,
         ].join('\n'),
         stuckPoint: form.stuckPoint,
@@ -88,18 +85,18 @@ const Reflection: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-3">
-          <h1 className="text-xl font-bold text-slate-900">학습 성찰</h1>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900">학습 성찰</h1>
           <p className="text-xs text-slate-500">
             오늘의 학습을 돌아보고 트윈을 업데이트하세요
           </p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
           {/* Form (3/5) */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             {submitted ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -190,20 +187,6 @@ const Reflection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 다시 보면 좋을 개념 */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-800 mb-1.5">
-                    다시 보면 좋을 개념
-                  </label>
-                  <input
-                    type="text"
-                    value={form.revisitConcept}
-                    onChange={(e) => update('revisitConcept', e.target.value)}
-                    placeholder="복습이 필요한 개념을 적어주세요"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400"
-                  />
-                </div>
-
                 {/* 자유 성찰 */}
                 <div>
                   <label className="block text-sm font-semibold text-slate-800 mb-1.5">
@@ -260,7 +243,7 @@ const Reflection: React.FC = () => {
           </div>
 
           {/* Right sidebar (2/5) */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-5">
             {/* AI 추천 이유 */}
             <div className="rounded-2xl bg-indigo-50/60 border border-indigo-200 p-5">
               <h3 className="text-sm font-bold text-indigo-800 mb-2">

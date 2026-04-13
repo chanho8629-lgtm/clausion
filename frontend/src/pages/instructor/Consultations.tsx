@@ -17,7 +17,7 @@ import Modal from '../../components/common/Modal';
 
 type View = 'list' | 'active';
 
-const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' | 'rose' }> = {
+const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' | 'rose' | 'indigo' }> = {
   REQUESTED: { text: '요청', color: 'rose' },
   SCHEDULED: { text: '예정', color: 'amber' },
   IN_PROGRESS: { text: '진행 중', color: 'emerald' },
@@ -39,6 +39,7 @@ export default function Consultations() {
   const [scheduleStudentId, setScheduleStudentId] = useState('');
   const [scheduleStudentName, setScheduleStudentName] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+  const [scheduleRequestId, setScheduleRequestId] = useState<string | null>(null);
 
   const [studentSearch, setStudentSearch] = useState('');
   const [studentDropdownOpen, setStudentDropdownOpen] = useState(false);
@@ -52,8 +53,8 @@ export default function Consultations() {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
 
   const { data: consultations = [] } = useQuery({
-    queryKey: ['instructor', 'consultations'],
-    queryFn: () => consultationsApi.getConsultations('instructor'),
+    queryKey: ['instructor', 'consultations', courseId],
+    queryFn: () => consultationsApi.getConsultations('instructor', courseId),
     staleTime: 30_000,
   });
 
@@ -110,19 +111,25 @@ export default function Consultations() {
 
   // 상담 예약 mutation
   const scheduleMutation = useMutation({
-    mutationFn: () =>
-      consultationsApi.createConsultation({
+    mutationFn: () => {
+      if (scheduleRequestId) {
+        return consultationsApi.scheduleConsultation(scheduleRequestId, scheduledAt);
+      }
+      return consultationsApi.createConsultation({
         studentId: Number(scheduleStudentId),
         instructorId: Number(user?.id ?? 0),
         courseId: Number(courseId),
         scheduledAt,
-      }),
+      });
+    },
     onSuccess: () => {
       setScheduleModalOpen(false);
       setScheduleStudentId('');
       setScheduleStudentName('');
       setScheduledAt('');
+      setScheduleRequestId(null);
       queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+      queryClient.invalidateQueries({ queryKey: ['consultations'] });
     },
   });
 
@@ -154,12 +161,14 @@ export default function Consultations() {
   const startConsultation = async (id: string) => {
     setStartingCall(id);
     try {
-      // Call start-video which notifies the student via SSE
-      await api.post<{ consultationId: number; roomName: string; token: string }>(
+      // Call start-video which notifies the student via SSE and returns token+roomName
+      const result = await api.post<{ consultationId: number; roomName: string; token: string }>(
         `/api/consultations/${id}/start-video`,
       );
-      // Navigate to the video call page
-      navigate(`/instructor/consultation/${id}/video`);
+      // Navigate to video call page with token so we use the same room
+      navigate(`/instructor/consultation/${id}/video`, {
+        state: { token: result.token, roomName: result.roomName },
+      });
     } catch {
       alert('화상 통화를 시작할 수 없습니다.');
     } finally {
@@ -183,7 +192,7 @@ export default function Consultations() {
                 <VideoPanel consultationId={Number(activeConsultationId)} role="instructor" onEndCall={endConsultation} />
               </div>
               <div className="h-48">
-                <LiveNotes />
+                <LiveNotes consultationId={activeConsultationId} />
               </div>
             </div>
           }
@@ -200,10 +209,13 @@ export default function Consultations() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-base font-bold text-slate-800">상담 관리</h1>
-            <p className="text-xs text-slate-500">{requested.length > 0 && `요청 ${requested.length}건 · `}예정 {scheduled.length}건 · 완료 {completed.length}건</p>
+            <p className="text-xs text-slate-500">
+              {requested.length > 0 && <span className="text-indigo-600 font-medium">요청 {requested.length}건 · </span>}
+              예정 {scheduled.length}건 · 완료 {completed.length}건
+            </p>
           </div>
           <button
             onClick={() => setScheduleModalOpen(true)}
@@ -214,21 +226,21 @@ export default function Consultations() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Requested — 학생 상담 요청 */}
         {requested.length > 0 && (
           <div>
             <h2 className="text-sm font-semibold text-rose-700 mb-3">학생 상담 요청</h2>
             <div className="space-y-2">
               {requested.map((c) => {
-                const date = new Date(c.createdAt).toLocaleDateString('ko-KR', {
+                const date = new Date(c.scheduledAt ?? c.createdAt).toLocaleDateString('ko-KR', {
                   month: 'short', day: 'numeric',
                 });
                 return (
-                  <div key={c.id} className="bg-rose-50/80 backdrop-blur-[12px] border border-rose-200 rounded-2xl shadow-sm p-4 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-rose-500 w-14">{date}</span>
-                      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700">
+                  <div key={c.id} className="bg-rose-50/80 backdrop-blur-[12px] border border-rose-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                      <span className="text-sm text-rose-500 w-14 shrink-0">{date}</span>
+                      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700 shrink-0">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>
                       <div>
@@ -268,14 +280,17 @@ export default function Consultations() {
             <h2 className="text-sm font-semibold text-slate-800 mb-3">예정된 상담</h2>
             <div className="space-y-2">
               {scheduled.map((c) => {
-                const time = new Date(c.scheduledAt).toLocaleTimeString('ko-KR', {
+                const dt = new Date(c.scheduledAt);
+                const dateTime = dt.toLocaleDateString('ko-KR', {
+                  month: 'short', day: 'numeric', weekday: 'short',
+                }) + ' ' + dt.toLocaleTimeString('ko-KR', {
                   hour: '2-digit', minute: '2-digit',
                 });
                 const cfg = statusLabel[c.status] ?? statusLabel.SCHEDULED;
                 return (
-                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-mono font-semibold text-indigo-600 w-14">{time}</span>
+                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                      <span className="text-xs sm:text-sm font-mono font-semibold text-indigo-600 shrink-0">{dateTime}</span>
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>
@@ -319,9 +334,9 @@ export default function Consultations() {
                   month: 'short', day: 'numeric',
                 });
                 return (
-                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-slate-500 w-14">{date}</span>
+                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                      <span className="text-sm text-slate-500 shrink-0">{date}</span>
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>
@@ -348,7 +363,7 @@ export default function Consultations() {
       </main>
 
       {/* 상담 예약 모달 */}
-      <Modal isOpen={scheduleModalOpen} onClose={() => setScheduleModalOpen(false)} title="상담 예약" size="sm">
+      <Modal isOpen={scheduleModalOpen} onClose={() => { setScheduleModalOpen(false); setScheduleRequestId(null); }} title="상담 예약" size="sm">
         <div className="space-y-4">
           <div className="relative" data-student-dropdown>
             <label className="block text-xs font-medium text-slate-600 mb-1">학생 선택</label>
@@ -423,6 +438,7 @@ export default function Consultations() {
             <input
               type="datetime-local"
               value={scheduledAt}
+              min={new Date().toISOString().slice(0, 16)}
               onChange={(e) => setScheduledAt(e.target.value)}
               className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:border-indigo-400"
             />
@@ -563,26 +579,28 @@ export default function Consultations() {
               </p>
             </div>
 
-            {selectedConsultation.actionPlanJson && selectedConsultation.actionPlanJson !== '[]' && (
-              <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200">
-                <h4 className="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2">액션플랜</h4>
-                <ul className="space-y-1.5">
-                  {(() => {
-                    try {
-                      const plans = JSON.parse(selectedConsultation.actionPlanJson);
-                      return (plans as { task: string; day: string }[]).map((p, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
-                          <span className="text-xs font-semibold text-indigo-600 w-12 flex-shrink-0">{p.day}</span>
-                          {p.task}
-                        </li>
-                      ));
-                    } catch {
-                      return <li className="text-sm text-slate-500">{selectedConsultation.actionPlanJson}</li>;
-                    }
-                  })()}
-                </ul>
-              </div>
-            )}
+            {selectedConsultation.actionPlanJson && (() => {
+              const raw = selectedConsultation.actionPlanJson;
+              const plans: any[] = Array.isArray(raw)
+                ? raw
+                : typeof raw === 'string'
+                  ? (() => { try { return JSON.parse(raw); } catch { return []; } })()
+                  : [];
+              if (plans.length === 0) return null;
+              return (
+                <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200">
+                  <h4 className="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2">액션플랜</h4>
+                  <ul className="space-y-1.5">
+                    {plans.map((p: any, i: number) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-700">
+                        <span className="text-xs font-semibold text-indigo-600 w-12 flex-shrink-0">{p.day ?? p.dueDate ?? `Day ${i + 1}`}</span>
+                        {p.task ?? p.title ?? ''}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
 
             <div className="text-xs text-slate-400">
               상담일: {new Date(selectedConsultation.scheduledAt).toLocaleDateString('ko-KR', {

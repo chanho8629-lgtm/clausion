@@ -8,24 +8,34 @@ import { useAuthStore } from '../../store/authStore';
 import { useCourseId } from '../../hooks/useCourseId';
 import TagChip from '../common/TagChip';
 
+interface RiskStudent {
+  id: string;
+  name: string;
+  reasons: string[];
+}
+
+const PAGE_SIZE = 5;
+
 export default function RiskAlertBanner() {
   const courseId = useCourseId();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [callingStudentId, setCallingStudentId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
 
   const { data: students = [] } = useQuery({
     queryKey: ['instructor', 'risk-alerts', courseId],
     queryFn: async () => {
       const entries = await instructorApi.getCourseStudents(courseId!);
       return entries
-        .filter((e) => Number(e.overallRiskScore) >= 0.5)
+        .filter((e) => Number(e.overallRiskScore) >= 50)
         .map((e) => {
           const reasons: string[] = [];
           if (Number(e.masteryScore) < 50) reasons.push('이해도 부족');
           if (Number(e.motivationScore) < 50) reasons.push('동기 저하');
-          if (Number(e.overallRiskScore) >= 0.7) reasons.push('고위험');
+          if (Number(e.overallRiskScore) >= 70) reasons.push('고위험');
           if (e.aiInsight) reasons.push(e.aiInsight.slice(0, 20));
+          if (reasons.length === 0) reasons.push('주의 필요');
           return { id: String(e.studentId), name: e.studentName, reasons };
         });
     },
@@ -34,6 +44,9 @@ export default function RiskAlertBanner() {
   });
 
   if (students.length === 0) return null;
+
+  const totalPages = Math.ceil(students.length / PAGE_SIZE);
+  const pagedStudents = students.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
@@ -45,13 +58,18 @@ export default function RiskAlertBanner() {
         <h3 className="text-sm font-semibold text-rose-800">
           즉시 개입이 필요한 학생
         </h3>
+        {totalPages > 1 && (
+          <span className="text-xs text-rose-400 ml-auto">
+            {page + 1} / {totalPages}
+          </span>
+        )}
       </div>
 
       <div className="space-y-2">
-        {students.map((s) => (
+        {pagedStudents.map((s: RiskStudent) => (
           <div
             key={s.id}
-            className="flex items-center justify-between p-3 rounded-xl bg-white/80 border border-rose-100"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 p-3 rounded-xl bg-white/80 border border-rose-100"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700">
@@ -100,6 +118,38 @@ export default function RiskAlertBanner() {
           </div>
         ))}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-3 pt-3 border-t border-rose-200">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            이전
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i}
+              onClick={() => setPage(i)}
+              className={`w-6 h-6 text-xs font-medium rounded-lg transition-colors ${
+                i === page
+                  ? 'bg-rose-600 text-white'
+                  : 'text-rose-600 hover:bg-white border border-rose-200'
+              }`}
+            >
+              {i + 1}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page === totalPages - 1}
+            className="px-2.5 py-1 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            다음
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -11,11 +11,8 @@ interface Enrollment {
   status: string;
 }
 
-interface CourseDetail extends Course {
-  weeks?: { id: string; weekNo: number; title: string; summary: string }[];
-  enrollmentCount?: number;
-  createdByName?: string;
-}
+// Course 타입에 weeks, enrollmentCount, createdByName 이미 포함됨
+type CourseDetail = Course;
 
 type Tab = 'my' | 'all';
 
@@ -25,6 +22,7 @@ export default function CourseEnroll() {
   const [confirm, setConfirm] = useState<Course | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const { data: courses = [], isLoading } = useQuery<Course[]>({
     queryKey: ['all-courses'],
@@ -48,15 +46,13 @@ export default function CourseEnroll() {
     enabled: !!detailId,
   });
 
-  const [errorMessage, setErrorMessage] = useState('');
-
   const enrollMut = useMutation({
     mutationFn: (courseId: string) => coursesApi.enrollInCourse(courseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
       queryClient.invalidateQueries({ queryKey: ['all-courses'] });
       setConfirm(null);
-      setSuccessMessage('수강 신청이 완료되었습니다! 교강사 승인을 기다려주세요.');
+      setSuccessMessage('수강 신청이 완료되었습니다! 강사 승인을 기다려주세요.');
       setTimeout(() => setSuccessMessage(''), 4000);
     },
     onError: (err: Error) => {
@@ -77,12 +73,12 @@ export default function CourseEnroll() {
     REJECTED: { label: '거절됨', color: 'bg-rose-100 text-rose-600' },
   };
 
-  const DIFFICULTY: Record<number, string> = { 1: '기초', 2: '초급', 3: '중급', 4: '고급', 5: '심화' };
+  const DIFFICULTY: Record<string, string> = { EASY: '기초', MEDIUM: '중급', HARD: '고급' };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 pt-4 pb-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-0">
           <h1 className="text-base font-bold text-slate-800">과정 관리</h1>
           <p className="text-xs text-slate-500 mb-3">내 과정을 확인하거나 새 과정에 수강 신청하세요</p>
           <div className="flex gap-1">
@@ -128,7 +124,7 @@ export default function CourseEnroll() {
         </div>
       )}
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
         {isLoading && (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
@@ -334,9 +330,9 @@ export default function CourseEnroll() {
                               title={skill.description}
                             >
                               {skill.name}
-                              {skill.difficulty > 0 && (
+                              {skill.difficulty && (
                                 <span className="text-[9px] text-indigo-400">
-                                  {DIFFICULTY[skill.difficulty] ?? `Lv.${skill.difficulty}`}
+                                  {DIFFICULTY[skill.difficulty] ?? skill.difficulty}
                                 </span>
                               )}
                             </span>
