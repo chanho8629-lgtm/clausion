@@ -32,6 +32,7 @@ export default function InviteCodeManagement() {
       setError(null);
     },
     onError: (err: Error) => {
+      console.error('Invite code creation failed:', err);
       setError(err.message || '초대 코드 생성에 실패했습니다.');
     },
   });
@@ -133,15 +134,16 @@ export default function InviteCodeManagement() {
           </button>
         </div>
 
-      {/* Error message */}
-      {error && (
-        <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
-          <p className="text-sm text-rose-700">{error}</p>
-        </div>
-      )}
+        {/* Error message */}
+        {error && (
+          <div className="mt-3 p-3 rounded-lg bg-rose-50 border border-rose-200">
+            <p className="text-sm text-rose-700">{error}</p>
+          </div>
+        )}
+      </GlassCard>
 
       {/* Code list */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <GlassCard className="overflow-hidden">
         <div className="px-5 py-3 border-b border-slate-100">
           <h2 className="text-sm font-bold text-slate-800">초대 코드 목록</h2>
         </div>
@@ -237,7 +239,6 @@ export default function InviteCodeManagement() {
             </table>
           </div>
         )}
-      </div>
       </GlassCard>
     </div>
   );
