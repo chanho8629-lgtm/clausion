@@ -65,7 +65,7 @@ export default function RiskHeatmap() {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
             {students.map((student) => (
               <div key={student.id} className="relative">
                 <div

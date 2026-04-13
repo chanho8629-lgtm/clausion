@@ -95,7 +95,7 @@ export default function CourseDetail() {
       {/* Course Info */}
       <GlassCard className="p-6 space-y-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl font-bold text-slate-900">{course.title}</h2>
               <span

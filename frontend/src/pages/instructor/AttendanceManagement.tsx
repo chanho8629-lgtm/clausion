@@ -129,7 +129,7 @@ export default function AttendanceManagement() {
 
       {/* 통계 */}
       {stats && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <GlassCard className="p-4 text-center">
             <p className="text-2xl font-extrabold text-slate-900">{stats.totalSessions}</p>
             <p className="text-xs text-slate-500">총 세션</p>

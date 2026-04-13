@@ -280,7 +280,7 @@ export default function CurriculumUpload() {
       {data.skills.length > 0 && (
         <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-6">
           <h3 className="text-sm font-semibold text-slate-800 mb-4">추출된 스킬 ({data.skills.length}개)</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.skills.map((skill, i) => (
               <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <div className="flex items-center justify-between mb-1.5">
@@ -466,7 +466,7 @@ export default function CurriculumUpload() {
                   + 스킬 추가
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {existingSkills.map((skill) => (
                   <div key={skill.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 group">
                     <div className="flex items-center justify-between mb-1.5">

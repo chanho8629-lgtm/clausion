@@ -60,7 +60,7 @@ export default function StudentTwinCard({ twin, onClick }: StudentTwinCardProps)
         <RiskIndicator level={risk} size="sm" />
       </div>
 
-      <div className="grid grid-cols-4 gap-1.5 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-3">
         <ScorePill label="이해도" value={twin.masteryScore} />
         <ScorePill label="수행력" value={twin.executionScore} />
         <ScorePill label="동기" value={twin.motivationScore} />
