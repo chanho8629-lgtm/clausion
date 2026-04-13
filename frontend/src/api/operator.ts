@@ -64,7 +64,7 @@ export const operatorApi = {
     api.get<Array<{ id: string; name: string; courseCount: number; studentCount: number; avgMastery: number; avgMotivation: number; avgOverallRisk: number; consultationCount: number; atRiskStudentCount: number }>>('/api/operator/instructors/effectiveness'),
 
   getInstructorWorkload: () =>
-    api.get<Array<{ id: string; name: string; studentCount: number; consultationCount: number; courseCount: number; workloadScore: number; isOverloaded: boolean }>>('/api/operator/instructors/workload'),
+    api.get<Array<{ id: string; name: string; studentCount: number; totalCapacity: number; consultationCount: number; courseCount: number; workloadScore: number; isOverloaded: boolean }>>('/api/operator/instructors/workload'),
 
   // ── Intervention Center (강사별 그룹핑) ──────────────────
   getInterventionCenter: () =>
