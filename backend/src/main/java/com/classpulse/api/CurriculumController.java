@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.classpulse.domain.course.CourseWeek;
+
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -225,6 +227,71 @@ public class CurriculumController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(created.stream().map(SkillResponse::from).toList());
+    }
+
+    /** Recover weeks from completed async job results for courses that have skills but no weeks */
+    @PostMapping("/curriculum/recover-weeks")
+    @Transactional
+    public ResponseEntity<Map<String, Object>> recoverWeeks(@PathVariable Long courseId) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+
+        if (!course.getWeeks().isEmpty()) {
+            return ResponseEntity.ok(Map.of("message", "Weeks already exist", "count", course.getWeeks().size()));
+        }
+
+        // Find completed curriculum analysis jobs for this course
+        List<AsyncJob> jobs = asyncJobRepository.findAll().stream()
+                .filter(j -> "CURRICULUM_ANALYSIS".equals(j.getJobType()) && "COMPLETED".equals(j.getStatus()))
+                .filter(j -> j.getResultPayload() != null && courseId.equals(toLong(j.getResultPayload().get("courseId"))))
+                .toList();
+
+        for (AsyncJob job : jobs) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> weeklyConcepts = (List<Map<String, Object>>) job.getResultPayload().get("weekly_concepts");
+            if (weeklyConcepts != null && !weeklyConcepts.isEmpty()) {
+                for (Map<String, Object> wc : weeklyConcepts) {
+                    int weekNo = wc.get("week") instanceof Number ? ((Number) wc.get("week")).intValue() : 0;
+                    course.getWeeks().add(CourseWeek.builder()
+                            .course(course)
+                            .weekNo(weekNo)
+                            .title((String) wc.getOrDefault("title", "Week " + weekNo))
+                            .summary((String) wc.getOrDefault("summary", ""))
+                            .build());
+                }
+                courseRepository.save(course);
+                return ResponseEntity.ok(Map.of("message", "Weeks recovered", "count", course.getWeeks().size()));
+            }
+        }
+
+        // No job found — generate default weeks based on skill count
+        List<CurriculumSkill> skills = skillRepository.findByCourseId(courseId);
+        if (!skills.isEmpty()) {
+            int weekCount = Math.max(4, (int) Math.ceil(skills.size() / 3.0));
+            for (int w = 1; w <= weekCount; w++) {
+                int from = (w - 1) * 3;
+                int to = Math.min(w * 3, skills.size());
+                List<CurriculumSkill> weekSkills = from < skills.size() ? skills.subList(from, to) : List.of();
+                String title = weekSkills.isEmpty() ? "Week " + w
+                        : weekSkills.stream().map(CurriculumSkill::getName).reduce((a, b) -> a + ", " + b).orElse("Week " + w);
+                course.getWeeks().add(CourseWeek.builder()
+                        .course(course)
+                        .weekNo(w)
+                        .title(title)
+                        .summary(weekSkills.stream().map(CurriculumSkill::getDescription).reduce((a, b) -> a + "; " + b).orElse(""))
+                        .build());
+            }
+            courseRepository.save(course);
+            return ResponseEntity.ok(Map.of("message", "Weeks generated from skills", "count", course.getWeeks().size()));
+        }
+
+        return ResponseEntity.ok(Map.of("message", "No data to recover weeks from", "count", 0));
+    }
+
+    private static Long toLong(Object obj) {
+        if (obj instanceof Number) return ((Number) obj).longValue();
+        if (obj instanceof String) { try { return Long.parseLong((String) obj); } catch (Exception e) { return null; } }
+        return null;
     }
 
     @DeleteMapping("/skills/{skillId}")

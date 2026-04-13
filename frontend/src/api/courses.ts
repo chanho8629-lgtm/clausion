@@ -73,4 +73,8 @@ export const coursesApi = {
   createDefaultSkills(courseId: string): Promise<CurriculumSkill[]> {
     return api.post<CurriculumSkill[]>(`/api/courses/${courseId}/skills/defaults`);
   },
+
+  recoverWeeks(courseId: string): Promise<{ message: string; count: number }> {
+    return api.post(`/api/courses/${courseId}/curriculum/recover-weeks`);
+  },
 };

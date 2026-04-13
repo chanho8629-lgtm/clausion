@@ -2,6 +2,7 @@ package com.classpulse.ai;
 
 import com.classpulse.domain.course.Course;
 import com.classpulse.domain.course.CourseRepository;
+import com.classpulse.domain.course.CourseWeek;
 import com.classpulse.domain.course.CurriculumSkill;
 import com.classpulse.domain.course.CurriculumSkillRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -146,6 +147,25 @@ public class CurriculumAnalyzer {
                 skill.setPrerequisites(prereqs);
                 curriculumSkillRepository.save(skill);
             }
+        }
+
+        // Save weekly concepts as CourseWeek records
+        List<Map<String, Object>> weeklyConcepts = getListFromResponse(gptResponse, "weekly_concepts");
+        if (!weeklyConcepts.isEmpty() && course.getWeeks().isEmpty()) {
+            for (Map<String, Object> wc : weeklyConcepts) {
+                int weekNo = wc.get("week") instanceof Number ? ((Number) wc.get("week")).intValue() : 0;
+                String title = (String) wc.getOrDefault("title", "Week " + weekNo);
+                String summary = (String) wc.getOrDefault("summary", "");
+                CourseWeek week = CourseWeek.builder()
+                        .course(course)
+                        .weekNo(weekNo)
+                        .title(title)
+                        .summary(summary)
+                        .build();
+                course.getWeeks().add(week);
+            }
+            courseRepository.save(course);
+            log.info("주차 정보 {}개 저장 - courseId={}", weeklyConcepts.size(), courseId);
         }
 
         log.info("커리큘럼 분석 완료 - courseId={}, 스킬 {}개 생성", courseId, savedSkills.size());

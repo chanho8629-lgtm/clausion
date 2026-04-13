@@ -183,6 +183,9 @@ export default function CurriculumUpload() {
 
       const payload = jobResult.resultPayload as Record<string, unknown> | null;
 
+      // Recover/generate weeks from analysis result
+      await coursesApi.recoverWeeks(courseId).catch(() => {});
+
       const apiSkills = await coursesApi.getSkills(courseId);
       const idToName: Record<string, string> = {};
       apiSkills.forEach((s) => { idToName[String(s.id)] = s.name; });
@@ -211,6 +214,7 @@ export default function CurriculumUpload() {
       setAnalysisResult(data);
       setPhase('results');
       queryClient.invalidateQueries({ queryKey: ['courses', courseId, 'skills'] });
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
     },
     onError: () => {
       setPhase('input');
