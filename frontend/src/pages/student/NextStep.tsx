@@ -150,7 +150,7 @@ const NextStep: React.FC = () => {
                     {config.icon}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${config.accentBg}`}
                       >
@@ -169,16 +169,16 @@ const NextStep: React.FC = () => {
                     <h3 className="text-sm font-bold text-slate-800 mb-1">
                       {rec.title}
                     </h3>
-                    <p className="text-xs text-slate-500 leading-relaxed mb-2">
+                    <p className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">
                       {rec.reasonSummary}
                     </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-emerald-600 font-medium">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-emerald-600 font-medium flex-1 min-w-0 line-clamp-1">
                         예상 효과: {rec.expectedOutcome}
                       </p>
                       <button
                         onClick={() => navigate(action.path)}
-                        className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+                        className="shrink-0 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
                       >
                         {action.label}
                       </button>
