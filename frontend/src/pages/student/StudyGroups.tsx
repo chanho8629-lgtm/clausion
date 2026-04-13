@@ -109,7 +109,7 @@ export default function StudyGroups() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-base font-bold text-slate-800">스터디 그룹</h1>
             <p className="text-xs text-slate-500">
@@ -126,7 +126,7 @@ export default function StudyGroups() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Tabs */}
         <div className="flex items-center gap-1 bg-white rounded-xl border border-slate-300 p-1 w-fit">
           {tabs.map((t) => (

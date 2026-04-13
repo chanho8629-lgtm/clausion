@@ -62,14 +62,14 @@ export default function Enrollments() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
+          <div className="shrink-0">
             <h1 className="text-base font-bold text-slate-800">수강 승인</h1>
             <p className="text-xs text-slate-500">
               {courseId ? `대기 중 ${pending.length}건` : '과정을 선택하세요'}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
             {/* Course Selector */}
             {courses.length > 0 && (
               <select
@@ -107,7 +107,7 @@ export default function Enrollments() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {coursesLoading && (
           <p className="text-sm text-slate-400 text-center py-12">불러오는 중...</p>
         )}
@@ -138,7 +138,8 @@ export default function Enrollments() {
 
         {courseId && !loading && items.length > 0 && (
           <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[560px]">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50">
                   <th className="text-left px-5 py-3 text-xs font-semibold text-slate-500">학생</th>
@@ -195,6 +196,7 @@ export default function Enrollments() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </main>

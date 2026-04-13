@@ -85,18 +85,18 @@ const Reflection: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-3">
-          <h1 className="text-xl font-bold text-slate-900">학습 성찰</h1>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900">학습 성찰</h1>
           <p className="text-xs text-slate-500">
             오늘의 학습을 돌아보고 트윈을 업데이트하세요
           </p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6">
           {/* Form (3/5) */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             {submitted ? (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -243,7 +243,7 @@ const Reflection: React.FC = () => {
           </div>
 
           {/* Right sidebar (2/5) */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-5">
             {/* AI 추천 이유 */}
             <div className="rounded-2xl bg-indigo-50/60 border border-indigo-200 p-5">
               <h3 className="text-sm font-bold text-indigo-800 mb-2">

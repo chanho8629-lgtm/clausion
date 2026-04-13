@@ -41,7 +41,8 @@ export default function AuditLog() {
       ) : (
         <>
           <GlassCard className="overflow-hidden">
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="text-left p-4 font-semibold text-slate-600">시간</th>
@@ -85,6 +86,7 @@ export default function AuditLog() {
                 )}
               </tbody>
             </table>
+            </div>
           </GlassCard>
 
           {/* Pagination */}

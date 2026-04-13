@@ -105,7 +105,7 @@ export default function WhatIfSimulation() {
 
       {/* Inputs */}
       <GlassCard className="p-5">
-        <div className="flex gap-4 items-end">
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-end">
           <div className="flex-1">
             <label className="block text-sm font-medium text-slate-700 mb-1">대상 수강생</label>
             <select

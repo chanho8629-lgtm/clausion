@@ -64,7 +64,7 @@ export default function RiskAlertBanner() {
         {pagedStudents.map((s: RiskStudent) => (
           <div
             key={s.id}
-            className="flex items-center justify-between p-3 rounded-xl bg-white/80 border border-rose-100"
+            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0 p-3 rounded-xl bg-white/80 border border-rose-100"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700">

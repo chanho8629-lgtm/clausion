@@ -243,7 +243,7 @@ export default function QuestionBank() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-base font-bold text-slate-800">문제 은행</h1>
             <p className="text-xs text-slate-500">총 {questions.length}개 문제</p>
@@ -268,9 +268,9 @@ export default function QuestionBank() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-6">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* Filters */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-6 flex-wrap">
           <div className="flex items-center gap-1.5 bg-white rounded-xl border border-slate-300 p-1">
             {(['ALL', 'APPROVED', 'PENDING', 'REJECTED'] as FilterStatus[]).map((s) => (
               <button

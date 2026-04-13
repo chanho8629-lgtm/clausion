@@ -75,7 +75,7 @@ export default function CourseEnroll() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-4">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
           <h1 className="text-base font-bold text-slate-800">수강 신청</h1>
           <p className="text-xs text-slate-500">개설된 과정을 확인하고 수강 신청하세요</p>
         </div>
@@ -99,7 +99,7 @@ export default function CourseEnroll() {
         </div>
       )}
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-4">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
         {isLoading && (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (

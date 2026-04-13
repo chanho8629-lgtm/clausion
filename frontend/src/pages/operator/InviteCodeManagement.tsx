@@ -115,7 +115,8 @@ export default function InviteCodeManagement() {
         ) : codes.length === 0 ? (
           <div className="p-8 text-center text-sm text-slate-400">생성된 초대 코드가 없습니다.</div>
         ) : (
-          <table className="w-full">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="text-xs text-slate-500 border-b border-slate-100">
                 <th className="text-left px-5 py-2 font-medium">코드</th>
@@ -167,6 +168,7 @@ export default function InviteCodeManagement() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

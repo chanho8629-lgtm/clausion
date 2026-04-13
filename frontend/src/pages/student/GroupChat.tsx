@@ -203,9 +203,9 @@ export default function GroupChat() {
   });
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
+    <div className="flex flex-col h-[calc(100dvh-56px)] sm:h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-3 flex items-center gap-4">
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => navigate('/student/study-groups')}
           className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
@@ -247,7 +247,7 @@ export default function GroupChat() {
       </header>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-1">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4">
@@ -371,7 +371,7 @@ export default function GroupChat() {
       </div>
 
       {/* Input area */}
-      <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-slate-100 px-6 py-3">
+      <div className="sticky bottom-0 bg-white/80 backdrop-blur-md border-t border-slate-100 px-4 sm:px-6 py-3">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <input
             ref={fileInputRef}

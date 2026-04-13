@@ -70,15 +70,15 @@ const NextStep: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-3">
-          <h1 className="text-xl font-bold text-slate-900">다음 단계 추천</h1>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900">다음 단계 추천</h1>
           <p className="text-xs text-slate-500">
             AI가 분석한 최적의 학습 경로를 확인하세요
           </p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Object.entries(TYPE_CONFIG).map(([key, config]) => {

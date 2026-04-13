@@ -91,7 +91,7 @@ export default function InterventionCenter() {
                   </div>
 
                   {/* Message input */}
-                  <div className="ml-12 flex gap-2">
+                  <div className="ml-0 sm:ml-12 flex flex-col sm:flex-row gap-2">
                     <input
                       value={messageText[group.instructorId] || ''}
                       onChange={(e) => setMessageText(prev => ({ ...prev, [group.instructorId]: e.target.value }))}

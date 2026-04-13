@@ -195,7 +195,7 @@ export default function Consultations() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-base font-bold text-slate-800">상담 관리</h1>
             <p className="text-xs text-slate-500">
@@ -212,7 +212,7 @@ export default function Consultations() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Requested */}
         {requested.length > 0 && (
           <div>
@@ -223,8 +223,8 @@ export default function Consultations() {
                   month: 'short', day: 'numeric',
                 });
                 return (
-                  <div key={c.id} className="bg-indigo-50/80 backdrop-blur-[12px] border border-indigo-200 rounded-2xl shadow-sm p-4 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-4">
+                  <div key={c.id} className="bg-indigo-50/80 backdrop-blur-[12px] border border-indigo-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-700">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>
@@ -276,9 +276,9 @@ export default function Consultations() {
                 });
                 const cfg = statusLabel[c.status] ?? statusLabel.SCHEDULED;
                 return (
-                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex items-center justify-between hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-mono font-semibold text-indigo-600 w-36">{dateTime}</span>
+                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                      <span className="text-xs sm:text-sm font-mono font-semibold text-indigo-600 shrink-0">{dateTime}</span>
                       <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>
@@ -322,9 +322,9 @@ export default function Consultations() {
                   month: 'short', day: 'numeric',
                 });
                 return (
-                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-slate-500 w-14">{date}</span>
+                  <div key={c.id} className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                      <span className="text-sm text-slate-500 shrink-0">{date}</span>
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>

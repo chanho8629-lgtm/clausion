@@ -64,17 +64,17 @@ const Review: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-6 py-3">
-          <h1 className="text-xl font-bold text-slate-900">복습 관리</h1>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
+          <h1 className="text-lg sm:text-xl font-bold text-slate-900">복습 관리</h1>
           <p className="text-xs text-slate-500">
             AI가 분석한 맞춤 복습 과제를 확인하세요
           </p>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
               label: '전체 과제',
@@ -109,7 +109,7 @@ const Review: React.FC = () => {
         <ReviewTimeline />
 
         {/* Filter tabs */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {(
             [
               { key: 'all', label: '전체' },
