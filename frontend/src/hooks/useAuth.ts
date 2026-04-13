@@ -13,8 +13,8 @@ export function useAuth() {
   const logout = useCallback(() => store.logout(), [store]);
 
   const register = useCallback(
-    (email: string, password: string, name: string, role: User['role']) =>
-      store.register(email, password, name, role),
+    (email: string, password: string, name: string, role: User['role'], inviteCode?: string) =>
+      store.register(email, password, name, role, inviteCode),
     [store],
   );
 

@@ -92,7 +92,7 @@ public class OperatorPersonnelController {
     public ResponseEntity<List<Map<String, Object>>> getAtRiskStudents() {
         List<StudentTwin> allTwins = studentTwinRepository.findAll();
         List<Map<String, Object>> result = allTwins.stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .sorted((a, b) -> b.getOverallRiskScore().compareTo(a.getOverallRiskScore()))
                 .map(t -> {
                     Map<String, Object> m = new LinkedHashMap<>();
@@ -223,7 +223,7 @@ public class OperatorPersonnelController {
                     .average().orElse(0.0);
             long atRiskStudentCount = allTwins.stream()
                     .filter(t -> t.getOverallRiskScore() != null &&
-                            t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                            t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                     .count();
 
             Map<String, Object> m = new LinkedHashMap<>();
@@ -283,7 +283,7 @@ public class OperatorPersonnelController {
     public ResponseEntity<List<Map<String, Object>>> getInterventionCenter() {
         List<StudentTwin> atRiskTwins = studentTwinRepository.findAll().stream()
                 .filter(t -> t.getOverallRiskScore() != null &&
-                        t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                        t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .collect(Collectors.toList());
 
         // Group by course (each course belongs to one instructor)

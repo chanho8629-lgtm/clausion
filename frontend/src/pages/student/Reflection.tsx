@@ -74,7 +74,7 @@ const Reflection: React.FC = () => {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reflections', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['reflections', studentId, courseId] });
       setSubmitted(true);
     },
   });

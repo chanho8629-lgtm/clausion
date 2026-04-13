@@ -51,7 +51,7 @@ public class OperatorDashboardController {
 
         List<StudentTwin> allTwins = studentTwinRepository.findAll();
         long atRiskStudents = allTwins.stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .map(t -> t.getStudent().getId())
                 .distinct()
                 .count();
@@ -96,7 +96,7 @@ public class OperatorDashboardController {
                 double avgMastery = twins.stream().mapToDouble(t -> t.getMasteryScore().doubleValue()).average().orElse(0);
                 double avgExecution = twins.stream().mapToDouble(t -> t.getExecutionScore().doubleValue()).average().orElse(0);
                 double avgMotivation = twins.stream().mapToDouble(t -> t.getMotivationScore().doubleValue()).average().orElse(0);
-                long atRisk = twins.stream().filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0).count();
+                long atRisk = twins.stream().filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0).count();
                 double riskRatio = (double) atRisk / twins.size();
                 double healthScore = 0.3 * avgMastery + 0.2 * avgExecution + 0.2 * avgMotivation + 0.15 * (1 - riskRatio) * 100 + 0.15 * 100;
 
@@ -145,7 +145,7 @@ public class OperatorDashboardController {
     public ResponseEntity<List<Map<String, Object>>> getRiskAlerts() {
         List<StudentTwin> allTwins = studentTwinRepository.findAll();
         List<Map<String, Object>> alerts = allTwins.stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.6")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("60")) > 0)
                 .sorted((a, b) -> b.getOverallRiskScore().compareTo(a.getOverallRiskScore()))
                 .limit(20)
                 .map(t -> {
@@ -192,7 +192,7 @@ public class OperatorDashboardController {
 
         Map<String, Object> result = new LinkedHashMap<>();
         long unreadAlerts = studentTwinRepository.findAll().stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .count();
 
         result.put("pendingCourses", pendingCourses.size());

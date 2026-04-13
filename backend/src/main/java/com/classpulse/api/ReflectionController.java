@@ -149,7 +149,7 @@ public class ReflectionController {
                                 "HIGH_RISK_STUDENT",
                                 "학생 위험도 경고: " + student.getName(),
                                 String.format("%s 학생의 종합 위험도가 %.0f%%로 높습니다. 상담을 고려해주세요.",
-                                        student.getName(), overallRisk * 100),
+                                        student.getName(), overallRisk),
                                 Map.of(
                                         "studentId", studentId,
                                         "courseId", courseId,

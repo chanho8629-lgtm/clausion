@@ -26,7 +26,7 @@ public class OperatorReportController {
         List<StudentTwin> allTwins = studentTwinRepository.findAll();
 
         long atRiskCount = allTwins.stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .count();
         long decliningCount = allTwins.stream()
                 .filter(t -> "DECLINING".equals(t.getTrendDirection()))
@@ -142,7 +142,7 @@ public class OperatorReportController {
     @GetMapping("/ai/intervention-suggestions")
     public ResponseEntity<List<Map<String, Object>>> getInterventionSuggestions() {
         List<StudentTwin> atRiskTwins = studentTwinRepository.findAll().stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .sorted((a, b) -> b.getOverallRiskScore().compareTo(a.getOverallRiskScore()))
                 .limit(10)
                 .collect(Collectors.toList());
@@ -154,7 +154,7 @@ public class OperatorReportController {
             m.put("courseTitle", t.getCourse().getTitle());
 
             double risk = t.getOverallRiskScore().doubleValue();
-            if (risk >= 0.85) {
+            if (risk >= 85) {
                 m.put("suggestedAction", "긴급 1:1 상담 배정 + 보충 자료 제공");
                 m.put("urgency", "HIGH");
                 m.put("expectedImpact", "이탈 위험 -20% 예상");

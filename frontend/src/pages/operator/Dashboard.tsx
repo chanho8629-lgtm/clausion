@@ -169,13 +169,13 @@ export default function OperatorDashboard() {
                   </div>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                  alert.overallRisk >= 0.8 ? 'bg-rose-100 text-rose-700'
-                  : alert.overallRisk >= 0.6 ? 'bg-orange-100 text-orange-700'
-                  : alert.overallRisk >= 0.4 ? 'bg-amber-100 text-amber-700'
-                  : alert.overallRisk >= 0.2 ? 'bg-sky-100 text-sky-700'
+                  alert.overallRisk >= 80 ? 'bg-rose-100 text-rose-700'
+                  : alert.overallRisk >= 60 ? 'bg-orange-100 text-orange-700'
+                  : alert.overallRisk >= 40 ? 'bg-amber-100 text-amber-700'
+                  : alert.overallRisk >= 20 ? 'bg-sky-100 text-sky-700'
                   : 'bg-emerald-100 text-emerald-700'
                 }`}>
-                  {(alert.overallRisk * 100).toFixed(0)}%
+                  {Math.round(alert.overallRisk)}%
                 </span>
               </div>
             ))}

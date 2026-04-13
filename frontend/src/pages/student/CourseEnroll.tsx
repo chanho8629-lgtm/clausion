@@ -62,8 +62,8 @@ export default function CourseEnroll() {
     },
   });
 
-  const getEnrollmentStatus = (courseId: string): string | null => {
-    const e = enrollments.find((en) => String(en.courseId) === courseId);
+  const getEnrollmentStatus = (courseId: string | number): string | null => {
+    const e = enrollments.find((en) => String(en.courseId) === String(courseId));
     return e?.status ?? null;
   };
 
