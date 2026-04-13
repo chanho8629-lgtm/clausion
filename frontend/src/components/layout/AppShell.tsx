@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import IncomingCallModal from '../consultation/IncomingCallModal';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -179,6 +179,8 @@ export default function AppShell({ role }: AppShellProps) {
 /* ── Dashboard-style inline chatbot ──────────────── */
 
 function StudentChatbot() {
+  const location = useLocation();
+  const isGroupChat = /\/study-groups\/\d+\/chat/.test(location.pathname);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<{ role: 'ai' | 'user'; text: string }[]>([
@@ -217,6 +219,8 @@ function StudentChatbot() {
       setSending(false);
     }
   };
+
+  if (isGroupChat) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
