@@ -256,7 +256,11 @@ public class OperatorPersonnelController {
                     .mapToInt(c -> studentTwinRepository.findByCourseId(c.getId()).size())
                     .sum();
             int totalCapacity = courses.stream()
-                    .mapToInt(c -> c.getMaxCapacity() != null ? c.getMaxCapacity() : 30)
+                    .mapToInt(c -> {
+                        int actual = studentTwinRepository.findByCourseId(c.getId()).size();
+                        int cap = c.getMaxCapacity() != null ? c.getMaxCapacity() : 30;
+                        return Math.max(cap, actual);
+                    })
                     .sum();
             int consultationCount = consultationRepository
                     .findByInstructorIdOrderByScheduledAtDesc(instructor.getId()).size();
