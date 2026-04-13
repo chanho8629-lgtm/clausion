@@ -6,7 +6,7 @@ export interface WeekDaySummary {
   dayLabel: string;
   total: number;
   completed: number;
-  status: 'completed' | 'partial' | 'missed' | 'today' | 'future';
+  status: 'completed' | 'partial' | 'missed' | 'today' | 'future' | 'empty';
 }
 
 export const reviewsApi = {
