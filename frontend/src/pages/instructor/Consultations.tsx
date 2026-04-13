@@ -138,10 +138,20 @@ export default function Consultations() {
   });
 
   // 상담 요청 수락/거절 mutation
+  const [acceptError, setAcceptError] = useState(false);
+
   const acceptMutation = useMutation({
     mutationFn: (consultationId: string) => consultationsApi.acceptConsultation(consultationId),
     onSuccess: () => {
+      setAcceptError(false);
+    },
+    onError: () => {
+      setAcceptError(true);
+      setTimeout(() => setAcceptError(false), 3000);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+      queryClient.invalidateQueries({ queryKey: ['consultations'] });
     },
   });
 
@@ -368,6 +378,12 @@ export default function Consultations() {
           </div>
         )}
       </main>
+
+      {acceptError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-rose-600 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg">
+          상담 수락에 실패했습니다. 다시 시도해주세요.
+        </div>
+      )}
 
       {/* 상담 예약 모달 */}
       <Modal isOpen={scheduleModalOpen} onClose={() => { setScheduleModalOpen(false); setScheduleRequestId(null); }} title="상담 예약" size="sm">

@@ -34,7 +34,7 @@ export const consultationsApi = {
   },
 
   acceptConsultation(consultationId: string): Promise<Consultation> {
-    return api.put<Consultation>(`/api/consultations/${consultationId}/accept`);
+    return api.put<Consultation>(`/api/consultations/${consultationId}/accept`, {});
   },
 
   rejectConsultation(consultationId: string, reason?: string): Promise<Consultation> {

@@ -171,7 +171,9 @@ public class ConsultationController {
 
     @PutMapping("/{id}/accept")
     @Transactional
-    public ResponseEntity<ConsultationResponse> accept(@PathVariable Long id) {
+    public ResponseEntity<ConsultationResponse> accept(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
         Consultation consultation = consultationService.getById(id);
         verifyConsultationAccess(consultation);
 
