@@ -25,6 +25,7 @@ const STATUS_LABEL: Record<string, { text: string; color: string }> = {
   SCHEDULED: { text: '예정', color: 'text-indigo-600 bg-indigo-50' },
   COMPLETED: { text: '완료', color: 'text-emerald-600 bg-emerald-50' },
   CANCELLED: { text: '취소', color: 'text-slate-500 bg-slate-100' },
+  REJECTED: { text: '거절됨', color: 'text-rose-600 bg-rose-50' },
 };
 
 const PLAN_STATUS_ICON: Record<string, string> = {

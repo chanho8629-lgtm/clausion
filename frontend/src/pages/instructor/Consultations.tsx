@@ -17,8 +17,8 @@ import Modal from '../../components/common/Modal';
 
 type View = 'list' | 'active';
 
-const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' | 'indigo' }> = {
-  REQUESTED: { text: '요청됨', color: 'indigo' },
+const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' | 'rose' | 'indigo' }> = {
+  REQUESTED: { text: '요청', color: 'rose' },
   SCHEDULED: { text: '예정', color: 'amber' },
   IN_PROGRESS: { text: '진행 중', color: 'emerald' },
   COMPLETED: { text: '완료', color: 'slate' },
@@ -92,7 +92,6 @@ export default function Consultations() {
     const state = location.state as {
       preselectedStudentId?: string;
       preselectedStudentName?: string;
-      immediateContact?: boolean;
       showBriefingForId?: string;
     } | null;
 
@@ -131,6 +130,21 @@ export default function Consultations() {
       setScheduleRequestId(null);
       queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
       queryClient.invalidateQueries({ queryKey: ['consultations'] });
+    },
+  });
+
+  // 상담 요청 수락/거절 mutation
+  const acceptMutation = useMutation({
+    mutationFn: (consultationId: string) => consultationsApi.acceptConsultation(consultationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (consultationId: string) => consultationsApi.rejectConsultation(consultationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
     },
   });
 
@@ -213,46 +227,44 @@ export default function Consultations() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* Requested */}
+        {/* Requested — 학생 상담 요청 */}
         {requested.length > 0 && (
           <div>
-            <h2 className="text-sm font-semibold text-indigo-700 mb-3">학생 상담 요청</h2>
+            <h2 className="text-sm font-semibold text-rose-700 mb-3">학생 상담 요청</h2>
             <div className="space-y-2">
               {requested.map((c) => {
-                const date = new Date(c.scheduledAt).toLocaleDateString('ko-KR', {
+                const date = new Date(c.scheduledAt ?? c.createdAt).toLocaleDateString('ko-KR', {
                   month: 'short', day: 'numeric',
                 });
                 return (
-                  <div key={c.id} className="bg-indigo-50/80 backdrop-blur-[12px] border border-indigo-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
+                  <div key={c.id} className="bg-rose-50/80 backdrop-blur-[12px] border border-rose-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-700">
+                      <span className="text-sm text-rose-500 w-14 shrink-0">{date}</span>
+                      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700 shrink-0">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-800">{c.studentName ?? '학생'}</span>
-                          <TagChip label="요청됨" color="indigo" size="sm" />
-                        </div>
-                        {c.courseTitle && (
-                          <p className="text-xs text-slate-500 mt-0.5">{c.courseTitle}</p>
-                        )}
+                        <span className="text-sm font-medium text-slate-800">{c.studentName ?? '학생'}</span>
+                        <TagChip label="요청" color="rose" size="sm" className="ml-2" />
                         {c.notes && (
-                          <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">"{c.notes}"</p>
+                          <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">{c.notes}</p>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">{date}</span>
                       <button
-                        onClick={() => {
-                          setScheduleRequestId(String(c.id));
-                          setScheduleStudentId(String(c.studentId));
-                          setScheduleStudentName(c.studentName ?? '');
-                          setScheduleModalOpen(true);
-                        }}
-                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                        onClick={() => acceptMutation.mutate(String(c.id))}
+                        disabled={acceptMutation.isPending || rejectMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
                       >
-                        일정 잡기
+                        수락
+                      </button>
+                      <button
+                        onClick={() => rejectMutation.mutate(String(c.id))}
+                        disabled={acceptMutation.isPending || rejectMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                      >
+                        거절
                       </button>
                     </div>
                   </div>

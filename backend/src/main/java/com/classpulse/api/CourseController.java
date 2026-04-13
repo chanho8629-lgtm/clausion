@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -28,7 +29,8 @@ public class CourseController {
     public record CourseResponse(
             Long id, String title, String description, String schedule, String classTime,
             LocalDate startDate, LocalDate endDate,
-            String status, Long createdById, String createdByName,
+            String status, String approvalStatus, String approvalNote,
+            Long createdById, String createdByName,
             List<WeekResponse> weeks, int enrollmentCount
     ) {
         public static CourseResponse from(Course c, int enrollmentCount) {
@@ -40,6 +42,8 @@ public class CourseController {
                     c.getSchedule(), c.getClassTime(),
                     c.getStartDate(), c.getEndDate(),
                     c.getStatus(),
+                    c.getApprovalStatus(),
+                    c.getApprovalNote(),
                     c.getCreatedBy() != null ? c.getCreatedBy().getId() : null,
                     c.getCreatedBy() != null ? c.getCreatedBy().getName() : null,
                     weeks, enrollmentCount
@@ -67,6 +71,7 @@ public class CourseController {
                 .endDate(request.endDate())
                 .createdBy(instructor)
                 .status("ACTIVE")
+                .approvalStatus("PENDING")
                 .build();
         course = courseRepository.save(course);
 
@@ -83,7 +88,7 @@ public class CourseController {
         if (currentUser.getRole() == User.Role.INSTRUCTOR) {
             courses = courseRepository.findByCreatedByIdAndStatus(userId, "ACTIVE");
         } else {
-            courses = courseRepository.findByStatus("ACTIVE");
+            courses = courseRepository.findByStatusAndApprovalStatus("ACTIVE", "APPROVED");
         }
 
         List<CourseResponse> responses = courses.stream()
@@ -114,7 +119,8 @@ public class CourseController {
     }
 
     @PostMapping("/{id}/enroll")
-    public ResponseEntity<?> enroll(@PathVariable Long id) {
+    @Transactional
+    public ResponseEntity<EnrollResponse> enroll(@PathVariable Long id) {
         Long userId = SecurityUtil.getCurrentUserId();
 
         if (enrollmentRepository.existsByCourseIdAndStudentId(id, userId)) {

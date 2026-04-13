@@ -12,8 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @RestController
@@ -56,26 +59,50 @@ public class ReviewController {
             @RequestParam(required = false) Long courseId) {
         Long userId = SecurityUtil.getCurrentUserId();
         LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.plusDays(1).atStartOfDay();
 
         // Fetch pending/in-progress tasks scheduled for today or earlier (includes overdue)
-        List<ReviewTask> tasks = new ArrayList<>(reviewTaskRepository
+        List<ReviewTask> activeTasks = new ArrayList<>(reviewTaskRepository
                 .findByStudentIdAndScheduledForLessThanEqualAndStatusIn(
                         userId, today, List.of("PENDING", "IN_PROGRESS")));
 
         // Filter by courseId if provided
         if (courseId != null) {
-            tasks = new ArrayList<>(tasks.stream().filter(t -> t.getCourse().getId().equals(courseId)).toList());
+            activeTasks = new ArrayList<>(activeTasks.stream().filter(t -> t.getCourse().getId().equals(courseId)).toList());
         }
 
-        // If no tasks exist, auto-generate from enrolled courses
-        if (tasks.isEmpty()) {
+        // If no active tasks exist, auto-generate from enrolled courses
+        if (activeTasks.isEmpty()) {
             var enrollments = enrollmentRepository.findByStudentIdAndStatus(userId, "ACTIVE");
             for (var enrollment : enrollments) {
                 if (courseId != null && !enrollment.getCourse().getId().equals(courseId)) continue;
                 List<ReviewTask> generated = reviewScheduler.generateReviewTasks(userId, enrollment.getCourse().getId());
-                tasks.addAll(generated);
+                activeTasks.addAll(generated);
             }
         }
+
+        List<ReviewTask> completedToday = reviewTaskRepository
+                .findByStudentIdAndCompletedAtGreaterThanEqualAndCompletedAtLessThan(
+                        userId, startOfDay, endOfDay);
+
+        List<ReviewTask> tasks = new ArrayList<>(
+                new LinkedHashMap<>(
+                        java.util.stream.Stream.concat(activeTasks.stream(), completedToday.stream())
+                                .collect(Collectors.toMap(
+                                        ReviewTask::getId,
+                                        Function.identity(),
+                                        (left, right) -> left,
+                                        LinkedHashMap::new
+                                ))
+                ).values()
+        );
+
+        tasks.sort(
+                Comparator.comparing((ReviewTask task) -> "COMPLETED".equals(task.getStatus()))
+                        .thenComparing(ReviewTask::getScheduledFor)
+                        .thenComparing(ReviewTask::getCreatedAt)
+        );
 
         return ResponseEntity.ok(tasks.stream().map(ReviewTaskResponse::from).toList());
     }

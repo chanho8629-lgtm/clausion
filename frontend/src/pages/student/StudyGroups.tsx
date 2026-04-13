@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { studyGroupApi } from '../../api/studyGroup';
 import { useAuthStore } from '../../store/authStore';
-import { useCourses } from '../../hooks/useCourseId';
+import { useCourseId } from '../../hooks/useCourseId';
 import type { StudyGroup, StudyGroupMember } from '../../types';
 
 type Tab = 'my' | 'explore' | 'matches';
@@ -14,8 +14,7 @@ export default function StudyGroups() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const userId = user?.id?.toString() ?? '';
-  const { data: courses } = useCourses();
-  const courseId = courses?.[0]?.id?.toString();
+  const courseId = useCourseId();
 
   const [tab, setTab] = useState<Tab>('my');
   const [showCreate, setShowCreate] = useState(false);
@@ -232,6 +231,7 @@ export default function StudyGroups() {
                 onDelete={() => setConfirm({ type: 'delete', groupId: group.id, groupName: group.name })}
                 onKick={(studentId, name) => setConfirm({ type: 'kick', groupId: group.id, groupName: group.name, targetStudentId: studentId, targetName: name })}
                 leaving={leaveMut.isPending}
+                deleting={deleteMut.isPending}
                 onChat={() => navigate(`/student/study-groups/${group.id}/chat`)}
               />
             ))}
@@ -406,6 +406,7 @@ interface GroupCardProps {
   onChat?: () => void;
   joining?: boolean;
   leaving?: boolean;
+  deleting?: boolean;
 }
 
 function GroupCard({ group, index, isMine, isLeader, userId, onJoin, onLeave, onDelete, onKick, onChat, joining, leaving }: GroupCardProps) {

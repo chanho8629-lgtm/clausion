@@ -23,6 +23,8 @@ export default function QuestionReviewPanel() {
     staleTime: 30_000,
   });
 
+  const [errorId, setErrorId] = useState<string | null>(null);
+
   const { data: skills = [] } = useQuery({
     queryKey: ['course-skills', courseId],
     queryFn: () => coursesApi.getSkills(courseId!),
@@ -38,12 +40,16 @@ export default function QuestionReviewPanel() {
       return questionsApi.rejectQuestion(id);
     },
     onSuccess: (_, vars) => {
+      setErrorId(null);
       setActionedIds((prev) => new Set(prev).add(vars.id));
       queryClient.invalidateQueries({ queryKey: ['instructor', 'questions'] });
     },
+    onError: (_, vars) => {
+      setErrorId(vars.id);
+    },
   });
 
-  const pendingQuestions = questions.filter((q) => !actionedIds.has(q.id));
+  const pendingQuestions = questions.filter((q) => !actionedIds.has(String(q.id)));
 
   return (
     <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-5">
@@ -54,7 +60,7 @@ export default function QuestionReviewPanel() {
 
       <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
         {pendingQuestions.map((q) => {
-          const diff = difficultyLabel(q.difficulty);
+          const diff = difficultyLabel(Number(q.difficulty));
           return (
             <div
               key={q.id}
@@ -72,17 +78,22 @@ export default function QuestionReviewPanel() {
 
               <div className="flex items-center gap-2 pt-1">
                 <button
-                  onClick={() => approveMutation.mutate({ id: q.id, status: 'APPROVED' })}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                  onClick={() => approveMutation.mutate({ id: String(q.id), status: 'APPROVED' })}
+                  disabled={approveMutation.isPending}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >
                   승인
                 </button>
                 <button
-                  onClick={() => approveMutation.mutate({ id: q.id, status: 'REJECTED' })}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
+                  onClick={() => approveMutation.mutate({ id: String(q.id), status: 'REJECTED' })}
+                  disabled={approveMutation.isPending}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
                 >
                   반려
                 </button>
+                {errorId === String(q.id) && (
+                  <span className="text-xs text-rose-500">처리 실패</span>
+                )}
               </div>
             </div>
           );

@@ -14,8 +14,11 @@ interface Enrollment {
 // Course 타입에 weeks, enrollmentCount, createdByName 이미 포함됨
 type CourseDetail = Course;
 
+type Tab = 'my' | 'all';
+
 export default function CourseEnroll() {
   const queryClient = useQueryClient();
+  const [tab, setTab] = useState<Tab>('my');
   const [confirm, setConfirm] = useState<Course | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -52,10 +55,10 @@ export default function CourseEnroll() {
       setSuccessMessage('수강 신청이 완료되었습니다! 강사 승인을 기다려주세요.');
       setTimeout(() => setSuccessMessage(''), 4000);
     },
-    onError: (error: Error) => {
+    onError: (err: Error) => {
       setConfirm(null);
-      setErrorMessage(error.message || '수강 신청에 실패했습니다.');
-      setTimeout(() => setErrorMessage(''), 5000);
+      setErrorMessage(err.message || '수강 신청에 실패했습니다. 다시 시도해주세요.');
+      setTimeout(() => setErrorMessage(''), 4000);
     },
   });
 
@@ -75,9 +78,31 @@ export default function CourseEnroll() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4">
-          <h1 className="text-base font-bold text-slate-800">수강 신청</h1>
-          <p className="text-xs text-slate-500">개설된 과정을 확인하고 수강 신청하세요</p>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-0">
+          <h1 className="text-base font-bold text-slate-800">과정 관리</h1>
+          <p className="text-xs text-slate-500 mb-3">내 과정을 확인하거나 새 과정에 수강 신청하세요</p>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setTab('my')}
+              className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
+                tab === 'my'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              내 과정
+            </button>
+            <button
+              onClick={() => setTab('all')}
+              className={`px-4 py-2 text-xs font-semibold rounded-t-lg border-b-2 transition-colors ${
+                tab === 'all'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              수강 신청
+            </button>
+          </div>
         </div>
       </header>
 
@@ -93,7 +118,7 @@ export default function CourseEnroll() {
       {errorMessage && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-rose-600 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg">
           <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
           {errorMessage}
         </div>
@@ -108,14 +133,34 @@ export default function CourseEnroll() {
           </div>
         )}
 
-        {!isLoading && courses.length === 0 && (
-          <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-12 text-center">
-            <h3 className="text-base font-bold text-slate-800 mb-2">개설된 과정이 없습니다</h3>
-            <p className="text-sm text-slate-500">강사가 과정을 개설하면 여기에 표시됩니다</p>
-          </div>
-        )}
+        {(() => {
+          const enrolledCourseIds = new Set(enrollments.map((e) => String(e.courseId)));
+          const displayCourses = tab === 'my'
+            ? courses.filter((c) => enrolledCourseIds.has(c.id))
+            : courses;
 
-        {courses.filter((c) => getEnrollmentStatus(c.id) !== 'ACTIVE').map((course, i) => {
+          if (!isLoading && displayCourses.length === 0) {
+            return (
+              <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-12 text-center">
+                <h3 className="text-base font-bold text-slate-800 mb-2">
+                  {tab === 'my' ? '신청한 과정이 없습니다' : '개설된 과정이 없습니다'}
+                </h3>
+                <p className="text-sm text-slate-500">
+                  {tab === 'my' ? '수강 신청 탭에서 과정을 신청해보세요' : '강사가 과정을 개설하면 여기에 표시됩니다'}
+                </p>
+                {tab === 'my' && (
+                  <button
+                    onClick={() => setTab('all')}
+                    className="mt-4 px-4 py-2 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                  >
+                    수강 신청하러 가기
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          return displayCourses.map((course, i) => {
           const status = getEnrollmentStatus(course.id);
           const badge = status ? STATUS_LABEL[status] : null;
 
@@ -182,7 +227,8 @@ export default function CourseEnroll() {
               </div>
             </motion.div>
           );
-        })}
+          });
+        })()}
       </main>
 
       {/* Course Detail Modal */}

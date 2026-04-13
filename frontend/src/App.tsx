@@ -1,7 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from './store/authStore';
-import type { ReactNode } from 'react';
+import { queryClient } from './lib/queryClient';
 import ErrorPage, { AppErrorBoundary } from './pages/ErrorPage';
 
 import AppShell from './components/layout/AppShell';
@@ -21,13 +22,15 @@ import StudentStudyGroups from './pages/student/StudyGroups';
 import StudentGroupChat from './pages/student/GroupChat';
 import StudentCourseEnroll from './pages/student/CourseEnroll';
 import StudentVideoCall from './pages/student/VideoCall';
+import StudentAnnouncements from './pages/student/Announcements';
+import StudentAttendance from './pages/student/Attendance';
 
 // Operator Pages
 import OperatorDashboard from './pages/operator/Dashboard';
 import CourseManagement from './pages/operator/CourseManagement';
+import CourseDetail from './pages/operator/CourseDetail';
 import InstructorAnalysis from './pages/operator/InstructorAnalysis';
 import InterventionCenter from './pages/operator/InterventionCenter';
-import AttendanceManagement from './pages/operator/AttendanceManagement';
 import AnnouncementList from './pages/operator/AnnouncementList';
 import OperationReports from './pages/operator/OperationReports';
 import WhatIfSimulation from './pages/operator/WhatIfSimulation';
@@ -47,20 +50,79 @@ import InstructorConsultations from './pages/instructor/Consultations';
 import Enrollments from './pages/instructor/Enrollments';
 import CourseCreate from './pages/instructor/CourseCreate';
 import InstructorVideoCall from './pages/instructor/VideoCall';
+import InstructorAttendance from './pages/instructor/AttendanceManagement';
+import OperatorAttendanceManagement from './pages/operator/AttendanceManagement';
+import InstructorAnnouncements from './pages/instructor/Announcements';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 2,
-      retry: 1,
-    },
-  },
-});
+function isPublicPath(pathname: string) {
+  return pathname === '/'
+    || pathname === '/login'
+    || pathname === '/register'
+    || pathname === '/operator/login';
+}
+
+function AuthSessionSync() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClientInstance = useQueryClient();
+  const token = useAuthStore((state) => state.token);
+  const user = useAuthStore((state) => state.user);
+  const syncFromStorage = useAuthStore((state) => state.syncFromStorage);
+
+  useEffect(() => {
+    syncFromStorage();
+  }, [syncFromStorage]);
+
+  useEffect(() => {
+    const reconcileAuth = () => {
+      syncFromStorage();
+      const { token: latestToken, user: latestUser } = useAuthStore.getState();
+      if (!latestToken || !latestUser) {
+        queryClientInstance.clear();
+        if (!isPublicPath(window.location.pathname)) {
+          navigate('/login', { replace: true });
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        reconcileAuth();
+      }
+    };
+
+    window.addEventListener('pageshow', reconcileAuth);
+    window.addEventListener('focus', reconcileAuth);
+    window.addEventListener('popstate', reconcileAuth);
+    window.addEventListener('storage', reconcileAuth);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pageshow', reconcileAuth);
+      window.removeEventListener('focus', reconcileAuth);
+      window.removeEventListener('popstate', reconcileAuth);
+      window.removeEventListener('storage', reconcileAuth);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [navigate, queryClientInstance, syncFromStorage]);
+
+  useEffect(() => {
+    if (token && user) return;
+
+    queryClientInstance.clear();
+    if (!isPublicPath(location.pathname)) {
+      navigate('/login', { replace: true });
+    }
+  }, [location.pathname, navigate, queryClientInstance, token, user]);
+
+  return null;
+}
 
 function ProtectedRoute({ children, allowedRoles }: { children: ReactNode; allowedRoles?: string[] }) {
   const { user, token } = useAuthStore();
+  const storedToken = localStorage.getItem('token');
 
-  if (!token || !user) {
+  if (!token || !user || !storedToken) {
     return <Navigate to="/login" replace />;
   }
 
@@ -77,6 +139,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AppErrorBoundary>
       <BrowserRouter>
+        <AuthSessionSync />
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<Landing />} />
@@ -103,6 +166,8 @@ export default function App() {
             <Route path="consultation/:id" element={<StudentConsultation />} />
             <Route path="consultation/:consultationId/video" element={<StudentVideoCall />} />
             <Route path="next-step" element={<StudentNextStep />} />
+            <Route path="attendance" element={<StudentAttendance />} />
+            <Route path="announcements" element={<StudentAnnouncements />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
@@ -122,9 +187,11 @@ export default function App() {
             <Route path="enrollments" element={<Enrollments />} />
             <Route path="students" element={<Students />} />
             <Route path="students/:studentId" element={<StudentDetail />} />
+            <Route path="attendance" element={<InstructorAttendance />} />
             <Route path="consultations" element={<InstructorConsultations />} />
             <Route path="consultation/:id" element={<InstructorConsultations />} />
             <Route path="consultation/:consultationId/video" element={<InstructorVideoCall />} />
+            <Route path="announcements" element={<InstructorAnnouncements />} />
             <Route path="profile" element={<Profile />} />
           </Route>
 
@@ -139,9 +206,10 @@ export default function App() {
           >
             <Route index element={<OperatorDashboard />} />
             <Route path="courses" element={<CourseManagement />} />
+            <Route path="courses/:courseId" element={<CourseDetail />} />
             <Route path="instructors" element={<InstructorAnalysis />} />
             <Route path="intervention" element={<InterventionCenter />} />
-            <Route path="attendance" element={<AttendanceManagement />} />
+            <Route path="attendance" element={<OperatorAttendanceManagement />} />
             <Route path="announcements" element={<AnnouncementList />} />
             <Route path="reports" element={<OperationReports />} />
             <Route path="simulation" element={<WhatIfSimulation />} />

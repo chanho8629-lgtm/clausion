@@ -2,10 +2,10 @@ package com.classpulse.api;
 
 import com.classpulse.config.SecurityUtil;
 import com.classpulse.domain.attendance.*;
-import com.classpulse.domain.audit.OperatorAuditLog;
-import com.classpulse.domain.audit.AuditLogRepository;
+import com.classpulse.domain.course.Course;
 import com.classpulse.domain.course.CourseEnrollment;
 import com.classpulse.domain.course.CourseEnrollmentRepository;
+import com.classpulse.domain.course.CourseRepository;
 import com.classpulse.domain.user.User;
 import com.classpulse.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,21 +18,45 @@ import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 강사 전용 출결 관리 API.
+ * /api/instructor/** 경로 → hasRole("INSTRUCTOR") 보안 적용.
+ * 강사 본인이 생성한 과정만 접근 가능.
+ */
 @Slf4j
 @RestController
-@RequestMapping("/api/operator/attendance")
+@RequestMapping("/api/instructor/attendance")
 @RequiredArgsConstructor
-@Transactional
-public class AttendanceController {
+@Transactional(readOnly = true)
+public class InstructorAttendanceController {
 
+    private final CourseRepository courseRepository;
     private final CourseSessionRepository courseSessionRepository;
     private final AttendanceRepository attendanceRepository;
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final UserRepository userRepository;
-    private final AuditLogRepository auditLogRepository;
 
+    /** 강사 본인의 과정 목록 */
+    @GetMapping("/courses")
+    public ResponseEntity<List<Map<String, Object>>> getMyCourses() {
+        Long instructorId = SecurityUtil.getCurrentUserId();
+        List<Course> courses = courseRepository.findByCreatedById(instructorId);
+        List<Map<String, Object>> result = courses.stream().map(c -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", c.getId());
+            m.put("title", c.getTitle());
+            m.put("status", c.getStatus());
+            return m;
+        }).collect(Collectors.toList());
+        return ResponseEntity.ok(result);
+    }
+
+    /** 과정의 세션 목록 (강사 본인 과정만) */
     @GetMapping("/sessions/{courseId}")
     public ResponseEntity<List<Map<String, Object>>> getSessions(@PathVariable Long courseId) {
+        if (!isOwnCourse(courseId)) {
+            return ResponseEntity.status(403).build();
+        }
         List<CourseSession> sessions = courseSessionRepository.findByCourseIdOrderBySessionDateDesc(courseId);
         List<Map<String, Object>> result = sessions.stream().map(s -> {
             Map<String, Object> m = new LinkedHashMap<>();
@@ -47,9 +71,15 @@ public class AttendanceController {
         return ResponseEntity.ok(result);
     }
 
+    /** 세션 생성 */
     @PostMapping("/sessions")
+    @Transactional
     public ResponseEntity<Map<String, Object>> createSession(@RequestBody Map<String, Object> body) {
         Long courseId = Long.valueOf(body.get("courseId").toString());
+        if (!isOwnCourse(courseId)) {
+            return ResponseEntity.status(403).build();
+        }
+
         LocalDate date = LocalDate.parse((String) body.get("sessionDate"));
         String title = (String) body.getOrDefault("title", null);
 
@@ -62,7 +92,7 @@ public class AttendanceController {
                 .build();
         courseSessionRepository.save(session);
 
-        // Auto-create attendance records for approved/active students only.
+        // 수강생 전원에게 출결 레코드 자동 생성 (기본: 결석)
         List<CourseEnrollment> enrollments = courseEnrollmentRepository.findByCourseIdAndStatus(courseId, "ACTIVE");
         for (CourseEnrollment enrollment : enrollments) {
             AttendanceRecord record = AttendanceRecord.builder()
@@ -84,6 +114,7 @@ public class AttendanceController {
         return ResponseEntity.ok(result);
     }
 
+    /** 세션별 출결 기록 조회 */
     @GetMapping("/records")
     public ResponseEntity<List<Map<String, Object>>> getAttendanceRecords(@RequestParam Long sessionId) {
         List<AttendanceRecord> records = attendanceRepository.findBySessionId(sessionId);
@@ -102,9 +133,11 @@ public class AttendanceController {
         return ResponseEntity.ok(result);
     }
 
+    /** 출결 일괄 업데이트 */
     @PostMapping("/records")
+    @Transactional
     public ResponseEntity<Void> bulkUpdateAttendance(@RequestBody List<Map<String, String>> records) {
-        Long operatorId = SecurityUtil.getCurrentUserId();
+        Long instructorId = SecurityUtil.getCurrentUserId();
         for (Map<String, String> rec : records) {
             Long sessionId = Long.valueOf(rec.get("sessionId"));
             Long studentId = Long.valueOf(rec.get("studentId"));
@@ -117,7 +150,7 @@ public class AttendanceController {
             if (!existing.isEmpty()) {
                 AttendanceRecord ar = existing.get(0);
                 ar.setStatus(status);
-                ar.setRecordedBy(operatorId);
+                ar.setRecordedBy(instructorId);
                 if ("PRESENT".equals(status) || "LATE".equals(status)) {
                     ar.setCheckInTime(java.time.LocalDateTime.now());
                 }
@@ -127,7 +160,7 @@ public class AttendanceController {
                         .sessionId(sessionId)
                         .studentId(studentId)
                         .status(status)
-                        .recordedBy(operatorId)
+                        .recordedBy(instructorId)
                         .build();
                 if ("PRESENT".equals(status) || "LATE".equals(status)) {
                     ar.setCheckInTime(java.time.LocalDateTime.now());
@@ -138,34 +171,13 @@ public class AttendanceController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/records/{id}")
-    public ResponseEntity<Void> updateAttendance(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        AttendanceRecord ar = attendanceRepository.findById(id).orElse(null);
-        if (ar == null) return ResponseEntity.notFound().build();
-
-        ar.setStatus(body.get("status"));
-        ar.setNote(body.get("note"));
-        ar.setRecordedBy(SecurityUtil.getCurrentUserId());
-        attendanceRepository.save(ar);
-
-        try {
-            OperatorAuditLog log = OperatorAuditLog.builder()
-                    .operatorId(SecurityUtil.getCurrentUserId())
-                    .actionType("ATTENDANCE_EDIT")
-                    .targetType("ATTENDANCE")
-                    .targetId(id)
-                    .details(Map.of())
-                    .build();
-            auditLogRepository.save(log);
-        } catch (Exception e) {
-            log.error("Failed to write audit log", e);
-        }
-
-        return ResponseEntity.noContent().build();
-    }
-
+    /** 과정별 출결 통계 */
     @GetMapping("/stats/{courseId}")
     public ResponseEntity<Map<String, Object>> getAttendanceStats(@PathVariable Long courseId) {
+        if (!isOwnCourse(courseId)) {
+            return ResponseEntity.status(403).build();
+        }
+
         List<CourseSession> sessions = courseSessionRepository.findByCourseIdOrderBySessionDateDesc(courseId);
         List<CourseEnrollment> enrollments = courseEnrollmentRepository.findByCourseIdAndStatus(courseId, "ACTIVE");
 
@@ -196,5 +208,13 @@ public class AttendanceController {
         result.put("avgAttendanceRate", totalRecords > 0 ? (double) totalPresent / totalRecords : 0.0);
         result.put("studentStats", studentStats);
         return ResponseEntity.ok(result);
+    }
+
+    /** 강사 본인이 생성한 과정인지 확인 */
+    private boolean isOwnCourse(Long courseId) {
+        Long instructorId = SecurityUtil.getCurrentUserId();
+        return courseRepository.findById(courseId)
+                .map(c -> c.getCreatedBy() != null && c.getCreatedBy().getId().equals(instructorId))
+                .orElse(false);
     }
 }
