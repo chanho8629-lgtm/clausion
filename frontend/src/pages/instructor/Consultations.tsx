@@ -48,6 +48,10 @@ export default function Consultations() {
   const [briefingModalOpen, setBriefingModalOpen] = useState(false);
   const [briefingConsultationId, setBriefingConsultationId] = useState<string | null>(null);
 
+  // 거절 모달
+  const [rejectModalId, setRejectModalId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
   // 요약 모달
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
@@ -142,9 +146,12 @@ export default function Consultations() {
   });
 
   const rejectMutation = useMutation({
-    mutationFn: (consultationId: string) => consultationsApi.rejectConsultation(consultationId),
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      consultationsApi.rejectConsultation(id, reason),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+      setRejectModalId(null);
+      setRejectReason('');
     },
   });
 
@@ -260,7 +267,7 @@ export default function Consultations() {
                         수락
                       </button>
                       <button
-                        onClick={() => rejectMutation.mutate(String(c.id))}
+                        onClick={() => { setRejectModalId(String(c.id)); setRejectReason(''); }}
                         disabled={acceptMutation.isPending || rejectMutation.isPending}
                         className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
                       >
@@ -609,6 +616,35 @@ export default function Consultations() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* 거절 사유 입력 모달 */}
+      <Modal open={!!rejectModalId} onClose={() => { setRejectModalId(null); setRejectReason(''); }} title="상담 요청 거절">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">거절 사유를 입력하면 학생에게 표시됩니다.</p>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="거절 사유를 입력하세요 (선택사항)"
+            rows={3}
+            className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm resize-none focus:outline-none focus:border-indigo-400"
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => { setRejectModalId(null); setRejectReason(''); }}
+              className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => rejectModalId && rejectMutation.mutate({ id: rejectModalId, reason: rejectReason || undefined })}
+              disabled={rejectMutation.isPending}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-50"
+            >
+              {rejectMutation.isPending ? '처리 중...' : '거절'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

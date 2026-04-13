@@ -62,7 +62,8 @@ public class ConsultationController {
             List<Map<String, Object>> actionPlanJson,
             Map<String, Object> briefingJson,
             String videoRoomName,
-            LocalDateTime createdAt, LocalDateTime completedAt
+            LocalDateTime createdAt, LocalDateTime completedAt,
+            String rejectionReason
     ) {
         public static ConsultationResponse from(Consultation c) {
             return new ConsultationResponse(
@@ -74,12 +75,15 @@ public class ConsultationController {
                     c.getNotes(), c.getSummaryText(), c.getCauseAnalysis(),
                     c.getActionPlanJson(), c.getBriefingJson(),
                     c.getVideoRoomName(),
-                    c.getCreatedAt(), c.getCompletedAt()
+                    c.getCreatedAt(), c.getCompletedAt(),
+                    c.getRejectionReason()
             );
         }
     }
 
     public record UpdateNotesRequest(String notes) {}
+
+    public record RejectRequest(String reason) {}
 
     public record JobIdResponse(Long jobId) {}
 
@@ -193,7 +197,9 @@ public class ConsultationController {
 
     @PutMapping("/{id}/reject")
     @Transactional
-    public ResponseEntity<ConsultationResponse> reject(@PathVariable Long id) {
+    public ResponseEntity<ConsultationResponse> reject(
+            @PathVariable Long id,
+            @RequestBody(required = false) RejectRequest body) {
         Consultation consultation = consultationService.getById(id);
         verifyConsultationAccess(consultation);
 
@@ -203,6 +209,9 @@ public class ConsultationController {
         }
 
         consultation.setStatus("REJECTED");
+        if (body != null && body.reason() != null && !body.reason().isBlank()) {
+            consultation.setRejectionReason(body.reason().trim());
+        }
         consultation = consultationRepository.save(consultation);
 
         Long currentUserId = SecurityUtil.getCurrentUserId();

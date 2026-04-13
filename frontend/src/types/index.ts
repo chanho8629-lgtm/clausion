@@ -180,6 +180,7 @@ export interface Consultation {
   videoRoomName?: string;
   createdAt: string;
   completedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface ActionPlan {

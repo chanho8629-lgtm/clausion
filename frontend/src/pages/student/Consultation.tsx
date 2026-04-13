@@ -183,11 +183,20 @@ const ConsultationPage: React.FC = () => {
         {rejectedConsultations.length > 0 && (
           <div className="rounded-2xl bg-rose-50 border border-rose-200 p-5">
             <h3 className="text-sm font-bold text-rose-800 mb-2">거절된 상담</h3>
-            {rejectedConsultations.map((c) => (
-              <p key={c.id} className="text-xs text-rose-700">
-                {c.courseTitle ?? '과정'} — 거절됨
-              </p>
-            ))}
+            <div className="space-y-2">
+              {rejectedConsultations.map((c) => (
+                <div key={c.id} className="rounded-xl bg-white border border-rose-100 p-3">
+                  <p className="text-xs font-medium text-rose-700">
+                    {c.courseTitle ?? '과정'} — 거절됨
+                  </p>
+                  {c.rejectionReason && (
+                    <p className="text-xs text-slate-600 mt-1.5 pl-3 border-l-2 border-rose-200">
+                      {c.rejectionReason}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

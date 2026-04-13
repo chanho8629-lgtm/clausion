@@ -64,6 +64,9 @@ public class Consultation {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

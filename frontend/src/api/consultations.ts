@@ -37,8 +37,8 @@ export const consultationsApi = {
     return api.put<Consultation>(`/api/consultations/${consultationId}/accept`);
   },
 
-  rejectConsultation(consultationId: string): Promise<Consultation> {
-    return api.put<Consultation>(`/api/consultations/${consultationId}/reject`);
+  rejectConsultation(consultationId: string, reason?: string): Promise<Consultation> {
+    return api.put<Consultation>(`/api/consultations/${consultationId}/reject`, reason ? { reason } : {});
   },
 
   saveSummary(
