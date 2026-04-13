@@ -153,6 +153,68 @@ public class ConsultationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ConsultationResponse.from(consultation));
     }
 
+    @PutMapping("/{id}/accept")
+    @Transactional
+    public ResponseEntity<ConsultationResponse> accept(@PathVariable Long id) {
+        Consultation consultation = consultationService.getById(id);
+
+        if (!"REQUESTED".equals(consultation.getStatus())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        consultation.setStatus("SCHEDULED");
+        consultation = consultationRepository.save(consultation);
+
+        notificationService.createNotification(
+                consultation.getStudent().getId(),
+                "CONSULTATION_ACCEPTED",
+                "상담 요청이 수락되었습니다",
+                consultation.getCourse().getTitle() + " 과목 상담이 예정되었습니다.",
+                Map.of("consultationId", consultation.getId())
+        );
+
+        consultationAiService.generateBriefing(consultation.getId());
+
+        return ResponseEntity.ok(ConsultationResponse.from(consultation));
+    }
+
+    @PutMapping("/{id}/reject")
+    @Transactional
+    public ResponseEntity<ConsultationResponse> reject(@PathVariable Long id) {
+        Consultation consultation = consultationService.getById(id);
+
+        String currentStatus = consultation.getStatus();
+        if (!"REQUESTED".equals(currentStatus) && !"SCHEDULED".equals(currentStatus)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        consultation.setStatus("REJECTED");
+        consultation = consultationRepository.save(consultation);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        boolean isStudent = consultation.getStudent().getId().equals(currentUserId);
+
+        if (isStudent) {
+            notificationService.createNotification(
+                    consultation.getInstructor().getId(),
+                    "CONSULTATION_REJECTED",
+                    "상담이 거절되었습니다",
+                    consultation.getStudent().getName() + " 학생이 상담을 거절했습니다.",
+                    Map.of("consultationId", consultation.getId())
+            );
+        } else {
+            notificationService.createNotification(
+                    consultation.getStudent().getId(),
+                    "CONSULTATION_REJECTED",
+                    "상담 요청이 거절되었습니다",
+                    consultation.getCourse().getTitle() + " 과목 상담 요청이 거절되었습니다.",
+                    Map.of("consultationId", consultation.getId())
+            );
+        }
+
+        return ResponseEntity.ok(ConsultationResponse.from(consultation));
+    }
+
     @GetMapping
     public ResponseEntity<List<ConsultationResponse>> list(@RequestParam String role) {
         Long userId = SecurityUtil.getCurrentUserId();

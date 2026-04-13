@@ -240,6 +240,8 @@ export interface StudyGroup {
   description: string;
   maxMembers: number;
   status: string;
+  createdById?: string;
+  createdByName?: string;
   members: StudyGroupMember[];
 }
 

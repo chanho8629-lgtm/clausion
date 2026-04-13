@@ -27,6 +27,10 @@ export const studyGroupApi = {
     return api.delete<void>(`/api/study-groups/${groupId}/leave`);
   },
 
+  deleteGroup(groupId: string): Promise<void> {
+    return api.delete<void>(`/api/study-groups/${groupId}`);
+  },
+
   getMyGroups(): Promise<StudyGroup[]> {
     return api.get<StudyGroup[]>('/api/study-groups/my');
   },

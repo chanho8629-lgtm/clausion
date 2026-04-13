@@ -126,7 +126,6 @@ export default function Consultations() {
     const state = location.state as {
       preselectedStudentId?: string;
       preselectedStudentName?: string;
-      immediateContact?: boolean;
       showBriefingForId?: string;
     } | null;
 

@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @RestController
@@ -109,6 +110,7 @@ public class CourseController {
     }
 
     @PostMapping("/{id}/enroll")
+    @Transactional
     public ResponseEntity<EnrollResponse> enroll(@PathVariable Long id) {
         Long userId = SecurityUtil.getCurrentUserId();
 

@@ -1,9 +1,12 @@
 package com.classpulse.api;
 
 import com.classpulse.ai.QuestionGenerator;
+import com.classpulse.config.SecurityUtil;
 import com.classpulse.domain.course.*;
 import com.classpulse.domain.learning.Question;
 import com.classpulse.domain.learning.QuestionRepository;
+import com.classpulse.domain.learning.ReviewTask;
+import com.classpulse.domain.learning.ReviewTaskRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -22,9 +25,11 @@ import java.util.Map;
 public class QuestionController {
 
     private final QuestionRepository questionRepository;
+    private final ReviewTaskRepository reviewTaskRepository;
     private final CourseRepository courseRepository;
     private final CurriculumSkillRepository skillRepository;
     private final AsyncJobRepository asyncJobRepository;
+    private final QuestionGenerator questionGenerator;
     private final QuestionGenerationService questionGenerationService;
 
     // --- DTOs ---
@@ -64,6 +69,81 @@ public class QuestionController {
 
     public record JobIdResponse(Long jobId) {}
 
+    public record PracticeQuestionResponse(
+            String id,
+            Long courseId,
+            Long skillId,
+            Long reviewTaskId,
+            String taskTitle,
+            String reasonSummary,
+            String questionType,
+            String difficulty,
+            String content,
+            String answer,
+            String explanation,
+            String generationReason,
+            String approvalStatus,
+            String source
+    ) {
+        public static PracticeQuestionResponse from(
+                Map<String, Object> payload,
+                Long reviewTaskId,
+                String taskTitle,
+                String reasonSummary
+        ) {
+            return new PracticeQuestionResponse(
+                    String.valueOf(payload.get("id")),
+                    asLong(payload.get("courseId")),
+                    asLong(payload.get("skillId")),
+                    reviewTaskId,
+                    taskTitle,
+                    reasonSummary,
+                    asString(payload.get("questionType")),
+                    asString(payload.get("difficulty")),
+                    asString(payload.get("content")),
+                    asString(payload.get("answer")),
+                    asString(payload.get("explanation")),
+                    asString(payload.get("generationReason")),
+                    asString(payload.get("approvalStatus")),
+                    asString(payload.get("source"))
+            );
+        }
+    }
+
+    public record EvaluatePracticeRequest(
+            Long reviewTaskId,
+            Long courseId,
+            Long skillId,
+            String questionType,
+            String questionContent,
+            String referenceAnswer,
+            String explanation,
+            String studentAnswer
+    ) {}
+
+    public record PracticeEvaluationResponse(
+            int score,
+            boolean passed,
+            String verdict,
+            List<String> strengths,
+            List<String> improvements,
+            String modelAnswer,
+            String coachingTip
+    ) {
+        @SuppressWarnings("unchecked")
+        public static PracticeEvaluationResponse from(Map<String, Object> payload) {
+            return new PracticeEvaluationResponse(
+                    payload.get("score") instanceof Number number ? number.intValue() : 0,
+                    payload.get("passed") instanceof Boolean passed && passed,
+                    asString(payload.get("verdict")),
+                    (List<String>) payload.getOrDefault("strengths", List.of()),
+                    (List<String>) payload.getOrDefault("improvements", List.of()),
+                    asString(payload.get("modelAnswer")),
+                    asString(payload.get("coachingTip"))
+            );
+        }
+    }
+
     // --- Endpoints ---
 
     @PostMapping("/api/courses/{courseId}/questions/generate")
@@ -90,9 +170,69 @@ public class QuestionController {
 
     @Transactional(readOnly = true)
     @GetMapping("/api/questions")
-    public ResponseEntity<List<QuestionResponse>> list(@RequestParam Long courseId) {
-        List<Question> questions = questionRepository.findByCourseId(courseId);
+    public ResponseEntity<List<QuestionResponse>> list(
+            @RequestParam Long courseId,
+            @RequestParam(required = false) Long skillId,
+            @RequestParam(required = false) String approvalStatus
+    ) {
+        List<Question> questions;
+        if (skillId != null && approvalStatus != null) {
+            questions = questionRepository.findByCourseIdAndSkillIdAndApprovalStatus(courseId, skillId, approvalStatus);
+        } else if (skillId != null) {
+            questions = questionRepository.findByCourseIdAndSkillId(courseId, skillId);
+        } else if (approvalStatus != null) {
+            questions = questionRepository.findByCourseIdAndApprovalStatus(courseId, approvalStatus);
+        } else {
+            questions = questionRepository.findByCourseId(courseId);
+        }
         return ResponseEntity.ok(questions.stream().map(QuestionResponse::from).toList());
+    }
+
+    @Transactional(readOnly = true)
+    @GetMapping("/api/questions/practice")
+    public ResponseEntity<PracticeQuestionResponse> getPracticeQuestion(
+            @RequestParam Long courseId,
+            @RequestParam(required = false) Long skillId,
+            @RequestParam(required = false) Long reviewTaskId
+    ) {
+        ReviewTask reviewTask = loadOwnedReviewTask(reviewTaskId);
+        Long effectiveCourseId = reviewTask != null ? reviewTask.getCourse().getId() : courseId;
+        Long effectiveSkillId = reviewTask != null && reviewTask.getSkill() != null
+                ? reviewTask.getSkill().getId()
+                : skillId;
+
+        Map<String, Object> question = questionGenerator.getPracticeQuestion(
+                effectiveCourseId,
+                effectiveSkillId,
+                reviewTask != null ? reviewTask.getTitle() : null,
+                reviewTask != null ? reviewTask.getReasonSummary() : null
+        );
+
+        return ResponseEntity.ok(PracticeQuestionResponse.from(
+                question,
+                reviewTaskId,
+                reviewTask != null ? reviewTask.getTitle() : null,
+                reviewTask != null ? reviewTask.getReasonSummary() : null
+        ));
+    }
+
+    @PostMapping("/api/questions/practice/evaluate")
+    public ResponseEntity<PracticeEvaluationResponse> evaluatePracticeAnswer(
+            @RequestBody EvaluatePracticeRequest request
+    ) {
+        loadOwnedReviewTask(request.reviewTaskId());
+
+        Map<String, Object> evaluation = questionGenerator.evaluatePracticeAnswer(
+                request.courseId(),
+                request.skillId(),
+                request.questionType(),
+                request.questionContent(),
+                request.referenceAnswer(),
+                request.explanation(),
+                request.studentAnswer()
+        );
+
+        return ResponseEntity.ok(PracticeEvaluationResponse.from(evaluation));
     }
 
     @PutMapping("/api/questions/{id}/approve")
@@ -162,6 +302,34 @@ public class QuestionController {
                 .orElseThrow(() -> new IllegalArgumentException("Question not found: " + id));
         questionRepository.delete(question);
         return ResponseEntity.noContent().build();
+    }
+
+    private ReviewTask loadOwnedReviewTask(Long reviewTaskId) {
+        if (reviewTaskId == null) {
+            return null;
+        }
+
+        ReviewTask reviewTask = reviewTaskRepository.findById(reviewTaskId)
+                .orElseThrow(() -> new IllegalArgumentException("Review task not found: " + reviewTaskId));
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (!reviewTask.getStudent().getId().equals(userId)) {
+            throw new IllegalArgumentException("Review task access denied: " + reviewTaskId);
+        }
+        return reviewTask;
+    }
+
+    private static String asString(Object value) {
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private static Long asLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            return Long.parseLong(text);
+        }
+        return null;
     }
 
     // --- Async Service ---

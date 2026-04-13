@@ -28,6 +28,14 @@ export const consultationsApi = {
     return api.post('/api/consultations/request', data);
   },
 
+  acceptConsultation(consultationId: string): Promise<Consultation> {
+    return api.put<Consultation>(`/api/consultations/${consultationId}/accept`);
+  },
+
+  rejectConsultation(consultationId: string): Promise<Consultation> {
+    return api.put<Consultation>(`/api/consultations/${consultationId}/reject`);
+  },
+
   createSummary(
     consultationId: string,
     data: { summaryText: string; actionPlanJson: string },

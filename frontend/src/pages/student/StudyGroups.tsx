@@ -22,7 +22,7 @@ export default function StudyGroups() {
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newMax, setNewMax] = useState(5);
-  const [confirm, setConfirm] = useState<{ type: 'join' | 'leave'; groupId: string; groupName: string } | null>(null);
+  const [confirm, setConfirm] = useState<{ type: 'join' | 'leave' | 'delete'; groupId: string; groupName: string } | null>(null);
 
   // --- Queries ---
   const { data: myGroups = [], isLoading: myLoading } = useQuery<StudyGroup[]>({
@@ -59,6 +59,14 @@ export default function StudyGroups() {
     },
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (groupId: string) => studyGroupApi.deleteGroup(groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-study-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['course-study-groups'] });
+    },
+  });
+
   const createMut = useMutation({
     mutationFn: () =>
       studyGroupApi.createStudyGroup({
@@ -79,6 +87,9 @@ export default function StudyGroups() {
 
   const isMember = (group: StudyGroup) =>
     group.members.some((m) => String(m.studentId) === userId);
+
+  const isCreator = (group: StudyGroup) =>
+    String(group.createdById) === userId;
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'my', label: '내 그룹' },
@@ -206,8 +217,11 @@ export default function StudyGroups() {
                 group={group}
                 index={i}
                 isMine
+                isOwner={isCreator(group)}
                 onLeave={() => setConfirm({ type: 'leave', groupId: group.id, groupName: group.name })}
+                onDelete={() => setConfirm({ type: 'delete', groupId: group.id, groupName: group.name })}
                 leaving={leaveMut.isPending}
+                deleting={deleteMut.isPending}
                 onChat={() => navigate(`/student/study-groups/${group.id}/chat`)}
               />
             ))}
@@ -305,13 +319,15 @@ export default function StudyGroups() {
             className="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm mx-4"
           >
             <h3 className="text-sm font-bold text-slate-800 mb-2">
-              {confirm.type === 'join' ? '그룹 참여' : '그룹 탈퇴'}
+              {confirm.type === 'join' ? '그룹 참여' : confirm.type === 'delete' ? '그룹 삭제' : '그룹 탈퇴'}
             </h3>
             <p className="text-sm text-slate-600 mb-5">
               <span className="font-semibold text-slate-800">{confirm.groupName}</span>
               {confirm.type === 'join'
                 ? ' 그룹에 참여하시겠습니까?'
-                : ' 그룹에서 탈퇴하시겠습니까?'}
+                : confirm.type === 'delete'
+                  ? ' 그룹을 삭제하시겠습니까? 모든 멤버가 제거됩니다.'
+                  : ' 그룹에서 탈퇴하시겠습니까?'}
             </p>
             <div className="flex gap-2 justify-end">
               <button
@@ -324,6 +340,8 @@ export default function StudyGroups() {
                 onClick={() => {
                   if (confirm.type === 'join') {
                     joinMut.mutate(confirm.groupId);
+                  } else if (confirm.type === 'delete') {
+                    deleteMut.mutate(confirm.groupId);
                   } else {
                     leaveMut.mutate(confirm.groupId);
                   }
@@ -335,7 +353,7 @@ export default function StudyGroups() {
                     : 'bg-rose-500 hover:bg-rose-600'
                 }`}
               >
-                {confirm.type === 'join' ? '참여' : '탈퇴'}
+                {confirm.type === 'join' ? '참여' : confirm.type === 'delete' ? '삭제' : '탈퇴'}
               </button>
             </div>
           </motion.div>
@@ -351,14 +369,17 @@ interface GroupCardProps {
   group: StudyGroup;
   index: number;
   isMine: boolean;
+  isOwner?: boolean;
   onJoin?: () => void;
   onLeave?: () => void;
+  onDelete?: () => void;
   onChat?: () => void;
   joining?: boolean;
   leaving?: boolean;
+  deleting?: boolean;
 }
 
-function GroupCard({ group, index, isMine, onJoin, onLeave, onChat, joining, leaving }: GroupCardProps) {
+function GroupCard({ group, index, isMine, isOwner, onJoin, onLeave, onDelete, onChat, joining, leaving, deleting }: GroupCardProps) {
   const isFull = group.members.length >= group.maxMembers;
 
   return (
@@ -391,13 +412,23 @@ function GroupCard({ group, index, isMine, onJoin, onLeave, onChat, joining, lea
                   채팅
                 </button>
               )}
-              <button
-                onClick={onLeave}
-                disabled={leaving}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
-              >
-                {leaving ? '탈퇴 중...' : '탈퇴'}
-              </button>
+              {isOwner && onDelete ? (
+                <button
+                  onClick={onDelete}
+                  disabled={deleting}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
+                >
+                  {deleting ? '삭제 중...' : '삭제'}
+                </button>
+              ) : (
+                <button
+                  onClick={onLeave}
+                  disabled={leaving}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
+                >
+                  {leaving ? '탈퇴 중...' : '탈퇴'}
+                </button>
+              )}
             </div>
           ) : (
             <button

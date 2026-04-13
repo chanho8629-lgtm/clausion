@@ -111,7 +111,6 @@ export default function CurriculumUpload() {
     queryKey: ['courses', courseId, 'skills'],
     queryFn: () => coursesApi.getSkills(courseId!),
     enabled: !!courseId,
-    staleTime: 60_000,
   });
 
   // 스킬 데이터가 로드되면 phase 결정 (useEffect로 이동하여 렌더 중 setState 방지)
