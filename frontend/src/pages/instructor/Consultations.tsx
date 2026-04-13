@@ -52,7 +52,8 @@ const MOCK_CONSULTATIONS: (Consultation & { studentName: string })[] = [
 
 type View = 'list' | 'active';
 
-const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' }> = {
+const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' | 'rose' }> = {
+  REQUESTED: { text: '요청', color: 'rose' },
   SCHEDULED: { text: '예정', color: 'amber' },
   IN_PROGRESS: { text: '진행 중', color: 'emerald' },
   COMPLETED: { text: '완료', color: 'slate' },
@@ -161,6 +162,21 @@ export default function Consultations() {
     },
   });
 
+  // 상담 요청 수락/거절 mutation
+  const acceptMutation = useMutation({
+    mutationFn: (consultationId: string) => consultationsApi.acceptConsultation(consultationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (consultationId: string) => consultationsApi.rejectConsultation(consultationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+    },
+  });
+
   // 브리핑 데이터 가져오기
   const { data: briefingData, isLoading: briefingLoading } = useQuery({
     queryKey: ['consultation', 'briefing', briefingConsultationId],
@@ -213,6 +229,7 @@ export default function Consultations() {
     );
   }
 
+  const requested = consultations.filter((c) => c.status === 'REQUESTED');
   const scheduled = consultations.filter((c) => c.status === 'SCHEDULED');
   const completed = consultations.filter((c) => c.status === 'COMPLETED');
 
@@ -222,7 +239,7 @@ export default function Consultations() {
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-base font-bold text-slate-800">상담 관리</h1>
-            <p className="text-xs text-slate-500">예정 {scheduled.length}건 · 완료 {completed.length}건</p>
+            <p className="text-xs text-slate-500">{requested.length > 0 && `요청 ${requested.length}건 · `}예정 {scheduled.length}건 · 완료 {completed.length}건</p>
           </div>
           <button
             onClick={() => setScheduleModalOpen(true)}
@@ -234,6 +251,53 @@ export default function Consultations() {
       </header>
 
       <main className="max-w-6xl mx-auto px-6 py-6 space-y-6">
+        {/* Requested — 학생 상담 요청 */}
+        {requested.length > 0 && (
+          <div>
+            <h2 className="text-sm font-semibold text-rose-700 mb-3">학생 상담 요청</h2>
+            <div className="space-y-2">
+              {requested.map((c) => {
+                const date = new Date(c.createdAt).toLocaleDateString('ko-KR', {
+                  month: 'short', day: 'numeric',
+                });
+                return (
+                  <div key={c.id} className="bg-rose-50/80 backdrop-blur-[12px] border border-rose-200 rounded-2xl shadow-sm p-4 flex items-center justify-between hover:shadow-md transition-shadow">
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm text-rose-500 w-14">{date}</span>
+                      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700">
+                        {(c.studentName ?? '?').charAt(0)}
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-slate-800">{c.studentName ?? '학생'}</span>
+                        <TagChip label="요청" color="rose" size="sm" className="ml-2" />
+                        {c.notes && (
+                          <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">{c.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => acceptMutation.mutate(String(c.id))}
+                        disabled={acceptMutation.isPending || rejectMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                      >
+                        수락
+                      </button>
+                      <button
+                        onClick={() => rejectMutation.mutate(String(c.id))}
+                        disabled={acceptMutation.isPending || rejectMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                      >
+                        거절
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Scheduled */}
         {scheduled.length > 0 && (
           <div>
