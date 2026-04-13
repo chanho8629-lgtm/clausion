@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ConsultationActionCard from '../../components/student/ConsultationActionCard';
 import { consultationsApi } from '../../api/consultations';
-import { useCourseId } from '../../hooks/useCourseId';
-import type { Consultation, ActionPlan } from '../../types';
+import { coursesApi } from '../../api/courses';
+import type { Consultation, ActionPlan, Course } from '../../types';
 
 const PLAN_STATUS_STYLES: Record<
   string,
@@ -39,13 +39,37 @@ function parseActionPlans(con: Consultation): ActionPlan[] {
 
 const ConsultationPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const courseId = useCourseId();
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [requestReason, setRequestReason] = useState('');
+
+  // Fetch enrolled courses
+  const { data: enrollments = [] } = useQuery<
+    { enrollmentId: number; courseId: number; studentId: number; status: string }[]
+  >({
+    queryKey: ['my-enrollments'],
+    queryFn: () => coursesApi.getMyEnrollments(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: courses = [] } = useQuery<Course[]>({
+    queryKey: ['courses'],
+    queryFn: () => coursesApi.getCourses(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const activeCourseIds = enrollments
+    .filter((e) => e.status === 'ACTIVE')
+    .map((e) => e.courseId.toString());
+  const enrolledCourses = courses.filter((c) => activeCourseIds.includes(c.id));
+
+  // Auto-select first enrolled course
+  const courseId = selectedCourseId ?? activeCourseIds[0] ?? undefined;
 
   const { data: consultations, isLoading } = useQuery<Consultation[]>({
     queryKey: ['consultations', 'student', courseId],
     queryFn: () => consultationsApi.getConsultations('student', courseId),
+    enabled: !!courseId,
   });
 
   const [rejectModal, setRejectModal] = useState<{ id: string; title?: string } | null>(null);
@@ -92,14 +116,29 @@ const ConsultationPage: React.FC = () => {
               강사 상담 일정과 실행 계획을 확인하세요
             </p>
           </div>
-          {courseId && (
-            <button
-              onClick={() => setShowRequestForm(!showRequestForm)}
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
-            >
-              {showRequestForm ? '취소' : '상담 요청'}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {enrolledCourses.length > 1 && (
+              <select
+                value={courseId ?? ''}
+                onChange={(e) => setSelectedCourseId(e.target.value || null)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-indigo-400"
+              >
+                {enrolledCourses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
+            {courseId && (
+              <button
+                onClick={() => setShowRequestForm(!showRequestForm)}
+                className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
+                {showRequestForm ? '취소' : '상담 요청'}
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
