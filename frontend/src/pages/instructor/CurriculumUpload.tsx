@@ -145,14 +145,24 @@ export default function CurriculumUpload() {
   const analyzeMutation = useMutation({
     mutationFn: async () => {
       if (!courseId) throw new Error('과정을 먼저 선택하세요.');
-      if (files.length === 0) throw new Error('파일을 업로드하세요.');
 
       setProgress(10);
 
-      const { jobId } = await coursesApi.uploadCurriculum(courseId, files[0], {
-        target,
-        additionalPrompt,
-      });
+      let jobId: number;
+      if (files.length > 0) {
+        const res = await coursesApi.uploadCurriculum(courseId, files[0], {
+          target,
+          additionalPrompt,
+        });
+        jobId = res.jobId;
+      } else {
+        const res = await coursesApi.analyzeCurriculumText(courseId, {
+          courseName: courseName || courses?.[0]?.title || '',
+          target: target || undefined,
+          additionalPrompt: additionalPrompt || undefined,
+        });
+        jobId = res.jobId;
+      }
       setProgress(30);
 
       const jobResult: JobStatus = await pollJob(jobId, { intervalMs: 2000, timeoutMs: 180_000 });
@@ -495,7 +505,8 @@ export default function CurriculumUpload() {
             </div>
 
             <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-6">
-              <label className="block text-sm font-semibold text-slate-800 mb-2">교재 / 자료 업로드</label>
+              <label className="block text-sm font-semibold text-slate-800 mb-1">교재 / 자료 업로드</label>
+              <p className="text-xs text-slate-400 mb-2">파일 없이도 과정명과 대상 정보만으로 AI 분석이 가능합니다</p>
               <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-indigo-300 transition-colors">
                 <input
                   type="file"
@@ -539,10 +550,10 @@ export default function CurriculumUpload() {
               )}
               <button
                 onClick={() => analyzeMutation.mutate()}
-                disabled={files.length === 0}
+                disabled={analyzeMutation.isPending}
                 className="flex-1 py-3 text-sm font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200 disabled:opacity-50"
               >
-                AI 분석 시작
+                {analyzeMutation.isPending ? '분석 중...' : 'AI 분석 시작'}
               </button>
             </div>
 

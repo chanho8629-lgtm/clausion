@@ -39,6 +39,13 @@ export const coursesApi = {
     });
   },
 
+  analyzeCurriculumText(
+    courseId: string,
+    data: { courseName: string; target?: string; additionalPrompt?: string },
+  ): Promise<{ jobId: number }> {
+    return api.post<{ jobId: number }>(`/api/courses/${courseId}/curriculum/analyze-text`, data);
+  },
+
   enrollInCourse(courseId: string): Promise<void> {
     return api.post<void>(`/api/courses/${courseId}/enroll`);
   },

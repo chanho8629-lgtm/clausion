@@ -44,9 +44,54 @@ public class CurriculumController {
 
     public record CreateSkillRequest(String name, String description, String difficulty) {}
 
+    public record AnalyzeTextRequest(String courseName, String target, String additionalPrompt) {}
+
     public record JobIdResponse(Long jobId) {}
 
     // --- Endpoints ---
+
+    /** Analyze curriculum from text description only (no file upload required) */
+    @PostMapping("/curriculum/analyze-text")
+    public ResponseEntity<JobIdResponse> analyzeText(
+            @PathVariable Long courseId,
+            @RequestBody AnalyzeTextRequest request
+    ) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+
+        String courseName = request.courseName() != null ? request.courseName() : course.getTitle();
+
+        // Build content from text inputs
+        StringBuilder content = new StringBuilder();
+        content.append("과정명: ").append(courseName).append("\n");
+        if (request.target() != null && !request.target().isBlank()) {
+            content.append("대상: ").append(request.target()).append("\n");
+        }
+        if (request.additionalPrompt() != null && !request.additionalPrompt().isBlank()) {
+            content.append("추가 정보: ").append(request.additionalPrompt()).append("\n");
+        }
+
+        AsyncJob job = AsyncJob.builder()
+                .jobType("CURRICULUM_ANALYSIS")
+                .status("PENDING")
+                .inputPayload(Map.of(
+                        "courseId", courseId,
+                        "source", "text_only",
+                        "contentLength", content.length()
+                ))
+                .build();
+        job = asyncJobRepository.save(job);
+
+        String objectives = "";
+        if (request.target() != null && !request.target().isBlank())
+            objectives += "대상: " + request.target() + "\n";
+        if (request.additionalPrompt() != null && !request.additionalPrompt().isBlank())
+            objectives += "추가 요청: " + request.additionalPrompt() + "\n";
+
+        curriculumAsyncService.analyzeCurriculum(job.getId(), courseId, content.toString(), objectives);
+
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(new JobIdResponse(job.getId()));
+    }
 
     @PostMapping("/curriculum")
     public ResponseEntity<JobIdResponse> uploadCurriculum(
