@@ -73,8 +73,13 @@ public class FileUploadController {
                     "url", downloadUrl
             ));
         } catch (Exception e) {
-            log.error("S3 업로드 실패: userId={}, fileName={}", userId, originalName, e);
-            return ResponseEntity.internalServerError().body(Map.of("error", "파일 업로드에 실패했습니다."));
+            log.error("S3 업로드 실패: userId={}, fileName={}, bucket={}, error={}",
+                    userId, originalName, bucket, e.getMessage(), e);
+            String detail = e.getMessage() != null ? e.getMessage() : "알 수 없는 오류";
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "error", "파일 업로드에 실패했습니다.",
+                    "detail", detail
+            ));
         }
     }
 
