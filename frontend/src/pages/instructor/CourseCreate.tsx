@@ -33,9 +33,9 @@ export default function CourseCreate() {
         startDate: startDate || undefined,
         endDate: endDate || undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (course) => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      navigate('/instructor/curriculum');
+      navigate(`/instructor/curriculum?courseId=${course.id}`);
     },
   });
 

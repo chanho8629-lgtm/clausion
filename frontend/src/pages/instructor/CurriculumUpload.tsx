@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { coursesApi } from '../../api/courses';
 import { pollJob } from '../../api/jobs';
 import type { JobStatus } from '../../api/jobs';
@@ -58,9 +58,15 @@ const diffLabel = (d: string) => {
 
 export default function CurriculumUpload() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: courses, isLoading: coursesLoading } = useCourses();
-  const courseId = courses?.[0]?.id?.toString();
+
+  // 선택된 과정 (URL 파라미터로 초기값 설정)
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
+    searchParams.get('courseId'),
+  );
+  const courseId = selectedCourseId ?? undefined;
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [courseName, setCourseName] = useState('');
@@ -78,6 +84,23 @@ export default function CurriculumUpload() {
   const [showAddSkill, setShowAddSkill] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', description: '', difficulty: 'MEDIUM' });
   const [deleteConfirm, setDeleteConfirm] = useState<CurriculumSkill | null>(null);
+
+  // 과정 목록 로드 시 자동 선택 (선택된 과정이 없을 때만)
+  useEffect(() => {
+    if (!courses || courses.length === 0) return;
+    if (selectedCourseId && courses.some((c) => String(c.id) === selectedCourseId)) return;
+    setSelectedCourseId(String(courses[0].id));
+  }, [courses, selectedCourseId]);
+
+  // 과정 변경 핸들러
+  const handleCourseChange = (newId: string) => {
+    setSelectedCourseId(newId);
+    setSearchParams({ courseId: newId });
+    setPhase('loading');
+    setAnalysisResult(null);
+    setFiles([]);
+    setCourseNameInitialized(false);
+  };
 
   // 스킬 CRUD mutations
   const updateSkillMut = useMutation({
@@ -142,13 +165,16 @@ export default function CurriculumUpload() {
     }
   }, [phase, coursesLoading, courseId, existingSkills]);
 
-  // 과정명 자동 채우기
+  // 과정명 자동 채우기 (선택된 과정 기준)
   useEffect(() => {
-    if (!courseNameInitialized && courses && courses.length > 0) {
-      setCourseName(courses[0].title);
-      setCourseNameInitialized(true);
+    if (!courseNameInitialized && courses && courseId) {
+      const course = courses.find((c) => String(c.id) === courseId);
+      if (course) {
+        setCourseName(course.title);
+        setCourseNameInitialized(true);
+      }
     }
-  }, [courses, courseNameInitialized]);
+  }, [courses, courseId, courseNameInitialized]);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -384,6 +410,21 @@ export default function CurriculumUpload() {
                 : 'AI가 커리큘럼을 분석하여 스킬 맵과 학습 계획을 생성합니다'}
             </p>
           </div>
+          <div className="flex items-center gap-3">
+            {courses && courses.length > 0 && (
+              <select
+                value={courseId ?? ''}
+                onChange={(e) => handleCourseChange(e.target.value)}
+                disabled={phase === 'analyzing'}
+                className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 max-w-[220px] disabled:opacity-50"
+              >
+                {courses.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
           {phase === 'view' && (
             <button
               onClick={() => setPhase('input')}
@@ -392,6 +433,7 @@ export default function CurriculumUpload() {
               재분석
             </button>
           )}
+          </div>
         </div>
       </header>
 
