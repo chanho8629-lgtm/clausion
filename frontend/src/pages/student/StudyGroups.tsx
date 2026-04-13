@@ -419,28 +419,30 @@ function GroupCard({ group, index, isMine, isLeader, userId, onJoin, onLeave, on
       transition={{ delay: index * 0.04 }}
       className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-5"
     >
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-slate-800">{group.name}</h3>
-            {isLeader && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                방장
-              </span>
+      <div className="mb-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-800">{group.name}</h3>
+              {isLeader && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                  방장
+                </span>
+              )}
+            </div>
+            {group.description && (
+              <p className="text-xs text-slate-500 mt-0.5 break-words">{group.description}</p>
             )}
           </div>
-          {group.description && (
-            <p className="text-xs text-slate-500 mt-0.5">{group.description}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap ${
             isFull ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
           }`}>
             {group.members.length}/{group.maxMembers}명
           </span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
           {isMine ? (
-            <div className="flex items-center gap-1.5">
+            <>
               {onChat && (
                 <button
                   onClick={onChat}
@@ -474,7 +476,7 @@ function GroupCard({ group, index, isMine, isLeader, userId, onJoin, onLeave, on
                   {leaving ? '탈퇴 중...' : '탈퇴'}
                 </button>
               )}
-            </div>
+            </>
           ) : (
             <button
               onClick={onJoin}
