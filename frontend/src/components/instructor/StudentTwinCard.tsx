@@ -12,10 +12,11 @@ function riskLevel(score: number): 'safe' | 'caution' | 'danger' {
   return 'safe';
 }
 
-function ScorePill({ label, value }: { label: string; value: number }) {
+function ScorePill({ label, value, invert }: { label: string; value: number; invert?: boolean }) {
+  const effective = invert ? 100 - value : value;
   const color =
-    value >= 70 ? 'text-emerald-700 bg-emerald-50' :
-    value >= 40 ? 'text-amber-700 bg-amber-50' :
+    effective >= 70 ? 'text-emerald-700 bg-emerald-50' :
+    effective >= 40 ? 'text-amber-700 bg-amber-50' :
     'text-rose-700 bg-rose-50';
 
   return (
@@ -34,6 +35,7 @@ const TREND_LABEL: Record<string, { icon: string; color: string }> = {
 
 export default function StudentTwinCard({ twin, onClick }: StudentTwinCardProps) {
   const risk = riskLevel(twin.overallRiskScore);
+  const riskPercent = Math.round(twin.overallRiskScore);
   const trend = twin.trendDirection ? TREND_LABEL[twin.trendDirection] : null;
   const updatedDate = twin.updatedAt
     ? new Date(twin.updatedAt).toLocaleDateString('ko-KR', {
@@ -58,11 +60,11 @@ export default function StudentTwinCard({ twin, onClick }: StudentTwinCardProps)
         <RiskIndicator level={risk} size="sm" />
       </div>
 
-      <div className="grid grid-cols-4 gap-1.5 mb-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-3">
         <ScorePill label="이해도" value={twin.masteryScore} />
         <ScorePill label="수행력" value={twin.executionScore} />
         <ScorePill label="동기" value={twin.motivationScore} />
-        <ScorePill label="위험도" value={twin.overallRiskScore} />
+        <ScorePill label="위험도" value={riskPercent} invert />
       </div>
 
       {twin.aiInsight && (

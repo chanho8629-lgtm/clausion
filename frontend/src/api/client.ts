@@ -1,7 +1,35 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? '';
+import { toApiUrl } from '../lib/apiBase';
+
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+
+  constructor(status: number, message: string, body?: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
 
 function getToken(): string | null {
   return localStorage.getItem('token');
+}
+
+// Guard against multiple concurrent 401s triggering duplicate logouts / navigations.
+let unauthorizedHandled = false;
+
+async function handleUnauthorized(): Promise<void> {
+  if (unauthorizedHandled) return;
+  unauthorizedHandled = true;
+  // Dynamic import avoids a circular dep (authStore imports this module for api.post).
+  const { useAuthStore } = await import('../store/authStore');
+  useAuthStore.getState().logout();
+  // AuthSessionSync in App.tsx reacts to the token becoming null and navigates via
+  // react-router. Reset the guard after a tick so subsequent sessions can re-trigger.
+  setTimeout(() => {
+    unauthorizedHandled = false;
+  }, 0);
 }
 
 async function request<T>(
@@ -19,26 +47,20 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(toApiUrl(path), {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
   if (!res.ok) {
-    if (res.status === 401) {
-      const isAuth = path.startsWith('/api/auth/login') || path.startsWith('/api/auth/register');
-      if (!isAuth && token) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        window.location.href = '/login';
-        throw new Error('Authentication failed');
-      }
+    if (res.status === 401 && !isAuthEndpoint && token) {
+      await handleUnauthorized();
     }
     const errorBody = await res.json().catch(() => null);
     const message =
       errorBody?.message ?? errorBody?.error ?? `Request failed: ${res.status}`;
-    throw new Error(message);
+    throw new ApiError(res.status, message, errorBody);
   }
 
   // 204 No Content

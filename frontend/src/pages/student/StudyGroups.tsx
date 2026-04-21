@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { studyGroupApi } from '../../api/studyGroup';
 import { useAuthStore } from '../../store/authStore';
-import { useCourses } from '../../hooks/useCourseId';
+import { useCourseId } from '../../hooks/useCourseId';
+import Skeleton from '../../components/common/Skeleton';
 import type { StudyGroup, StudyGroupMember } from '../../types';
 
 type Tab = 'my' | 'explore' | 'matches';
@@ -14,8 +15,7 @@ export default function StudyGroups() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const userId = user?.id?.toString() ?? '';
-  const { data: courses } = useCourses();
-  const courseId = courses?.[0]?.id?.toString();
+  const courseId = useCourseId();
 
   const [tab, setTab] = useState<Tab>('my');
   const [showCreate, setShowCreate] = useState(false);
@@ -108,7 +108,7 @@ export default function StudyGroups() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
+      <header className="sticky top-[41px] lg:top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-base font-bold text-slate-800">스터디 그룹</h1>
@@ -196,7 +196,7 @@ export default function StudyGroups() {
         {/* My Groups */}
         {tab === 'my' && (
           <div className="space-y-4">
-            {myLoading && <p className="text-sm text-slate-400 text-center py-12">불러오는 중...</p>}
+            {myLoading && <Skeleton variant="list" rows={3} />}
             {!myLoading && myGroups.length === 0 && (
               <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-12 text-center">
                 <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center">
@@ -232,6 +232,7 @@ export default function StudyGroups() {
                 onDelete={() => setConfirm({ type: 'delete', groupId: group.id, groupName: group.name })}
                 onKick={(studentId, name) => setConfirm({ type: 'kick', groupId: group.id, groupName: group.name, targetStudentId: studentId, targetName: name })}
                 leaving={leaveMut.isPending}
+                deleting={deleteMut.isPending}
                 onChat={() => navigate(`/student/study-groups/${group.id}/chat`)}
               />
             ))}
@@ -242,7 +243,7 @@ export default function StudyGroups() {
         {tab === 'explore' && (
           <div className="space-y-4">
             {!courseId && <p className="text-sm text-slate-400 text-center py-12">수강 중인 과정이 없습니다</p>}
-            {courseId && courseLoading && <p className="text-sm text-slate-400 text-center py-12">불러오는 중...</p>}
+            {courseId && courseLoading && <Skeleton variant="list" rows={3} />}
             {courseId && !courseLoading && courseGroups.length === 0 && (
               <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-12 text-center">
                 <h3 className="text-base font-bold text-slate-800 mb-2">아직 그룹이 없습니다</h3>
@@ -406,6 +407,7 @@ interface GroupCardProps {
   onChat?: () => void;
   joining?: boolean;
   leaving?: boolean;
+  deleting?: boolean;
 }
 
 function GroupCard({ group, index, isMine, isLeader, userId, onJoin, onLeave, onDelete, onKick, onChat, joining, leaving }: GroupCardProps) {
@@ -419,28 +421,30 @@ function GroupCard({ group, index, isMine, isLeader, userId, onJoin, onLeave, on
       transition={{ delay: index * 0.04 }}
       className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-5"
     >
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-slate-800">{group.name}</h3>
-            {isLeader && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                방장
-              </span>
+      <div className="mb-3">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-slate-800">{group.name}</h3>
+              {isLeader && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                  방장
+                </span>
+              )}
+            </div>
+            {group.description && (
+              <p className="text-xs text-slate-500 mt-0.5 break-words">{group.description}</p>
             )}
           </div>
-          {group.description && (
-            <p className="text-xs text-slate-500 mt-0.5">{group.description}</p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap ${
             isFull ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'
           }`}>
             {group.members.length}/{group.maxMembers}명
           </span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
           {isMine ? (
-            <div className="flex items-center gap-1.5">
+            <>
               {onChat && (
                 <button
                   onClick={onChat}
@@ -474,7 +478,7 @@ function GroupCard({ group, index, isMine, isLeader, userId, onJoin, onLeave, on
                   {leaving ? '탈퇴 중...' : '탈퇴'}
                 </button>
               )}
-            </div>
+            </>
           ) : (
             <button
               onClick={onJoin}

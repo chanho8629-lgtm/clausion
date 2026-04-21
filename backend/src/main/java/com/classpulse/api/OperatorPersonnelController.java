@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('OPERATOR')")
 @RequestMapping("/api/operator")
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -77,6 +78,7 @@ public class OperatorPersonnelController {
             m.put("id", s.getId());
             m.put("name", s.getName());
             m.put("email", s.getEmail());
+            m.put("courseId", latest != null ? latest.getCourse().getId() : null);
             m.put("courseTitle", latest != null ? latest.getCourse().getTitle() : "-");
             m.put("overallRisk", latest != null ? latest.getOverallRiskScore() : BigDecimal.ZERO);
             m.put("trend", latest != null && latest.getTrendDirection() != null ? latest.getTrendDirection() : "STABLE");
@@ -92,7 +94,7 @@ public class OperatorPersonnelController {
     public ResponseEntity<List<Map<String, Object>>> getAtRiskStudents() {
         List<StudentTwin> allTwins = studentTwinRepository.findAll();
         List<Map<String, Object>> result = allTwins.stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .sorted((a, b) -> b.getOverallRiskScore().compareTo(a.getOverallRiskScore()))
                 .map(t -> {
                     Map<String, Object> m = new LinkedHashMap<>();
@@ -147,6 +149,7 @@ public class OperatorPersonnelController {
                 .twinScoreBefore(twinBefore)
                 .build();
         interventionLogRepository.save(intervention);
+        notifyInstructorForIntervention(studentId, courseId, intervention.getDescription(), operatorId, intervention.getId());
 
         try {
             OperatorAuditLog auditLog = OperatorAuditLog.builder()
@@ -222,7 +225,7 @@ public class OperatorPersonnelController {
                     .average().orElse(0.0);
             long atRiskStudentCount = allTwins.stream()
                     .filter(t -> t.getOverallRiskScore() != null &&
-                            t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                            t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                     .count();
 
             Map<String, Object> m = new LinkedHashMap<>();
@@ -253,19 +256,29 @@ public class OperatorPersonnelController {
             int studentCount = courses.stream()
                     .mapToInt(c -> studentTwinRepository.findByCourseId(c.getId()).size())
                     .sum();
+            int totalCapacity = courses.stream()
+                    .mapToInt(c -> {
+                        int actual = studentTwinRepository.findByCourseId(c.getId()).size();
+                        int cap = c.getMaxCapacity() != null ? c.getMaxCapacity() : 30;
+                        return Math.max(cap, actual);
+                    })
+                    .sum();
             int consultationCount = consultationRepository
                     .findByInstructorIdOrderByScheduledAtDesc(instructor.getId()).size();
             int courseCount = courses.size();
 
-            double rawScore = studentCount * 0.4 + consultationCount * 0.3 + courseCount * 0.3;
-            // Normalize to 0-100 assuming reasonable max of ~100 raw units
-            double workloadScore = Math.min(rawScore, 100.0);
+            // Normalize each factor to 0-100 then weighted average
+            double studentLoad = totalCapacity > 0 ? Math.min((double) studentCount / totalCapacity, 1.0) * 100 : 0;
+            double consultationLoad = Math.min(consultationCount / 20.0, 1.0) * 100;
+            double courseLoad = Math.min(courseCount / 5.0, 1.0) * 100;
+            double workloadScore = Math.min(studentLoad * 0.5 + consultationLoad * 0.3 + courseLoad * 0.2, 100.0);
             boolean isOverloaded = workloadScore > 70;
 
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", instructor.getId());
             m.put("name", instructor.getName());
             m.put("studentCount", studentCount);
+            m.put("totalCapacity", totalCapacity);
             m.put("consultationCount", consultationCount);
             m.put("courseCount", courseCount);
             m.put("workloadScore", round2(workloadScore));
@@ -282,7 +295,7 @@ public class OperatorPersonnelController {
     public ResponseEntity<List<Map<String, Object>>> getInterventionCenter() {
         List<StudentTwin> atRiskTwins = studentTwinRepository.findAll().stream()
                 .filter(t -> t.getOverallRiskScore() != null &&
-                        t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                        t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .collect(Collectors.toList());
 
         // Group by course (each course belongs to one instructor)
@@ -420,5 +433,36 @@ public class OperatorPersonnelController {
 
     private double round2(double value) {
         return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private void notifyInstructorForIntervention(Long studentId, Long courseId, String description, Long operatorId, Long interventionId) {
+        if (courseId == null) {
+            return;
+        }
+
+        Course course = courseRepository.findById(courseId).orElse(null);
+        if (course == null || course.getCreatedBy() == null) {
+            return;
+        }
+
+        User student = userRepository.findById(studentId).orElse(null);
+        String studentName = student != null ? student.getName() : "학생";
+        String message = description == null || description.isBlank()
+                ? studentName + " 학생에 대한 운영자 개입이 승인되었습니다."
+                : description;
+
+        notificationService.createNotification(
+                course.getCreatedBy().getId(),
+                "INTERVENTION_DIRECTIVE",
+                "운영자 개입 승인",
+                message,
+                Map.of(
+                        "interventionId", interventionId,
+                        "studentId", studentId,
+                        "studentName", studentName,
+                        "courseId", courseId,
+                        "operatorId", operatorId
+                )
+        );
     }
 }

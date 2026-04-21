@@ -6,7 +6,7 @@ import { recommendationsApi } from '../../api/recommendations';
 import { useAuthStore } from '../../store/authStore';
 import { useCourseId } from '../../hooks/useCourseId';
 import type { Recommendation } from '../../types';
-import { getRecommendationAction } from '../../utils/recommendations';
+import { getRecommendationAction, normalizeType } from '../../utils/recommendations';
 
 const TYPE_STYLES: Record<string, { accent: string; icon: string }> = {
   review: { accent: 'from-indigo-500 to-violet-500', icon: '📖' },
@@ -45,7 +45,7 @@ const NextStepPrescriptionCard: React.FC = () => {
       ) : (
       <div className="space-y-3">
         {list.map((rec, i) => {
-          const style = TYPE_STYLES[rec.recommendationType] ?? TYPE_STYLES.review;
+          const style = TYPE_STYLES[normalizeType(rec.recommendationType)] ?? TYPE_STYLES.review;
           const isFirst = i === 0;
           const action = getRecommendationAction(rec.recommendationType);
           return (
@@ -70,13 +70,13 @@ const NextStepPrescriptionCard: React.FC = () => {
               <div className="flex items-start gap-3">
                 <span className="text-lg">{style.icon}</span>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-slate-800">
+                  <h3 className="text-sm font-semibold text-slate-800 line-clamp-1">
                     {rec.title}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                     {rec.reasonSummary}
                   </p>
-                  <p className="text-xs text-emerald-600 mt-1.5 font-medium">
+                  <p className="text-xs text-emerald-600 mt-1.5 font-medium truncate">
                     예상: {rec.expectedOutcome}
                   </p>
                 </div>

@@ -33,7 +33,7 @@ public class StudyGroupMember {
     @Column(name = "complement_note")
     private String complementNote;
 
-    @Column(name = "match_score", precision = 3, scale = 2)
+    @Column(name = "match_score", precision = 5, scale = 2)
     private BigDecimal matchScore;
 
     @Column(name = "joined_at")

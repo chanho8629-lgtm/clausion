@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,7 @@ public class StudyGroupController {
     private final UserService userService;
     private final StudyGroupMatcherAi studyGroupMatcherAi;
     private final SimpMessagingTemplate messagingTemplate;
+    private final com.classpulse.config.S3FileCleanupService s3CleanupService;
 
     @Autowired(required = false)
     private RabbitTemplate rabbitTemplate;
@@ -93,6 +95,14 @@ public class StudyGroupController {
             @PathVariable Long studentId,
             @RequestParam Long courseId
     ) {
+        // 본인 또는 강사만 매칭 조회 가능
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (!userId.equals(studentId)) {
+            User currentUser = userService.findById(userId);
+            if (currentUser.getRole() != User.Role.INSTRUCTOR) {
+                throw new SecurityException("Access denied");
+            }
+        }
         Map<String, Object> result = studyGroupMatcherAi.findMatches(studentId, courseId);
 
         List<Map<String, Object>> matches =
@@ -143,6 +153,19 @@ public class StudyGroupController {
         return ResponseEntity.status(HttpStatus.CREATED).body(StudyGroupResponse.from(group));
     }
 
+    @GetMapping("/my")
+    public ResponseEntity<List<StudyGroupResponse>> myGroups() {
+        Long userId = SecurityUtil.getCurrentUserId();
+        List<StudyGroup> groups = studyGroupRepository.findByMemberStudentId(userId);
+        return ResponseEntity.ok(groups.stream().map(StudyGroupResponse::from).toList());
+    }
+
+    @GetMapping("/course/{courseId}")
+    public ResponseEntity<List<StudyGroupResponse>> byCourse(@PathVariable Long courseId) {
+        List<StudyGroup> groups = studyGroupRepository.findByCourseId(courseId);
+        return ResponseEntity.ok(groups.stream().map(StudyGroupResponse::from).toList());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<StudyGroupResponse> getById(@PathVariable Long id) {
         StudyGroup group = studyGroupRepository.findById(id)
@@ -156,6 +179,10 @@ public class StudyGroupController {
         Long userId = SecurityUtil.getCurrentUserId();
         User student = userService.findById(userId);
 
+        // Row lock: two concurrent joins can't both see size < max and both insert.
+        // Whichever request wins the lock reads the updated count for the next check.
+        studyGroupRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new IllegalArgumentException("Study group not found: " + id));
         StudyGroup group = studyGroupRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Study group not found: " + id));
 
@@ -193,26 +220,34 @@ public class StudyGroupController {
         StudyGroup group = studyGroupRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Study group not found: " + id));
 
-        boolean isLeader = group.getMembers().stream()
-                .anyMatch(m -> m.getStudent().getId().equals(userId) && "LEADER".equals(m.getRole()));
-
-        if (isLeader) {
-            // 방장은 자기밖에 없을 때만 나갈 수 있음 (나가면 그룹도 삭제)
-            if (group.getMembers().size() > 1) {
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
-            }
-            // 멤버가 자기 자신뿐이면 그룹 자체를 삭제
-            studyGroupRepository.delete(group);
-            return ResponseEntity.noContent().build();
-        }
-
-        boolean removed = group.getMembers().removeIf(m -> m.getStudent().getId().equals(userId));
-        if (!removed) {
+        StudyGroupMember leavingMember = group.getMembers().stream()
+                .filter(m -> m.getStudent().getId().equals(userId))
+                .findFirst()
+                .orElse(null);
+        if (leavingMember == null) {
             return ResponseEntity.notFound().build();
         }
 
+        boolean leaderLeaving = isLeader(leavingMember);
+        group.getMembers().remove(leavingMember);
+
+        if (shouldDeleteGroup(group)) {
+            broadcastRoomDeleted(group, student.getName() + "님이 그룹을 떠나 채팅방이 종료되었습니다.");
+            java.util.List<String> fileKeys = messageRepository.findFileKeysByStudyGroupId(id);
+            messageRepository.deleteByStudyGroupId(id);
+            studyGroupRepository.delete(group);
+            s3CleanupService.deleteObjects(fileKeys);
+            return ResponseEntity.noContent().build();
+        }
+
+        String systemMessage = student.getName() + "님이 그룹을 떠났습니다.";
+        if (leaderLeaving || !hasLeader(group)) {
+            StudyGroupMember nextLeader = promoteNextLeader(group);
+            systemMessage = systemMessage + " 새로운 방장은 " + nextLeader.getStudent().getName() + "님입니다.";
+        }
+
         studyGroupRepository.save(group);
-        broadcastSystemMessage(group, student.getName() + "님이 그룹을 떠났습니다.");
+        broadcastSystemMessage(group, systemMessage);
 
         return ResponseEntity.noContent().build();
     }
@@ -272,21 +307,12 @@ public class StudyGroupController {
             return ResponseEntity.status(HttpStatus.CONFLICT).build();
         }
 
+        // Collect S3 keys BEFORE DB delete so cleanup has the full list.
+        java.util.List<String> fileKeys = messageRepository.findFileKeysByStudyGroupId(id);
+        messageRepository.deleteByStudyGroupId(id);
         studyGroupRepository.delete(group);
+        s3CleanupService.deleteObjects(fileKeys);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/my")
-    public ResponseEntity<List<StudyGroupResponse>> myGroups() {
-        Long userId = SecurityUtil.getCurrentUserId();
-        List<StudyGroup> groups = studyGroupRepository.findByMemberStudentId(userId);
-        return ResponseEntity.ok(groups.stream().map(StudyGroupResponse::from).toList());
-    }
-
-    @GetMapping("/course/{courseId}")
-    public ResponseEntity<List<StudyGroupResponse>> byCourse(@PathVariable Long courseId) {
-        List<StudyGroup> groups = studyGroupRepository.findByCourseId(courseId);
-        return ResponseEntity.ok(groups.stream().map(StudyGroupResponse::from).toList());
     }
 
     // ── System message helper ─────────────────────────────────────────
@@ -318,5 +344,55 @@ public class StudyGroupController {
         } else {
             messagingTemplate.convertAndSend("/topic/group-chat/" + group.getId(), payload);
         }
+    }
+
+    private void broadcastRoomDeleted(StudyGroup group, String text) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("groupId", group.getId());
+        payload.put("id", null);
+        payload.put("senderId", 0);
+        payload.put("senderName", "SYSTEM");
+        payload.put("content", text);
+        payload.put("messageType", "ROOM_DELETED");
+        payload.put("createdAt", LocalDateTime.now().toString());
+
+        if (rabbitTemplate != null) {
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.GROUP_CHAT_EXCHANGE,
+                    "group." + group.getId(),
+                    payload
+            );
+        } else {
+            messagingTemplate.convertAndSend("/topic/group-chat/" + group.getId(), payload);
+        }
+    }
+
+    private boolean shouldDeleteGroup(StudyGroup group) {
+        return group.getMembers().size() <= 1;
+    }
+
+    private boolean hasLeader(StudyGroup group) {
+        return group.getMembers().stream().anyMatch(this::isLeader);
+    }
+
+    private boolean isLeader(StudyGroupMember member) {
+        return "LEADER".equalsIgnoreCase(member.getRole());
+    }
+
+    private StudyGroupMember promoteNextLeader(StudyGroup group) {
+        StudyGroupMember nextLeader = group.getMembers().stream()
+                .min(Comparator
+                        .comparing(StudyGroupMember::getJoinedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(StudyGroupMember::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElseThrow(() -> new IllegalStateException("Cannot promote leader without members"));
+
+        group.getMembers().forEach(member -> {
+            if (!member.getId().equals(nextLeader.getId()) && isLeader(member)) {
+                member.setRole("MEMBER");
+            }
+        });
+        nextLeader.setRole("LEADER");
+        group.setCreatedBy(nextLeader.getStudent());
+        return nextLeader;
     }
 }

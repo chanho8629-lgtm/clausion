@@ -17,8 +17,8 @@ import Modal from '../../components/common/Modal';
 
 type View = 'list' | 'active';
 
-const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' | 'indigo' }> = {
-  REQUESTED: { text: '요청됨', color: 'indigo' },
+const statusLabel: Record<string, { text: string; color: 'emerald' | 'amber' | 'slate' | 'rose' | 'indigo' }> = {
+  REQUESTED: { text: '요청', color: 'rose' },
   SCHEDULED: { text: '예정', color: 'amber' },
   IN_PROGRESS: { text: '진행 중', color: 'emerald' },
   COMPLETED: { text: '완료', color: 'slate' },
@@ -47,6 +47,10 @@ export default function Consultations() {
   // 브리핑 모달
   const [briefingModalOpen, setBriefingModalOpen] = useState(false);
   const [briefingConsultationId, setBriefingConsultationId] = useState<string | null>(null);
+
+  // 거절 모달
+  const [rejectModalId, setRejectModalId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   // 요약 모달
   const [summaryModalOpen, setSummaryModalOpen] = useState(false);
@@ -92,7 +96,6 @@ export default function Consultations() {
     const state = location.state as {
       preselectedStudentId?: string;
       preselectedStudentName?: string;
-      immediateContact?: boolean;
       showBriefingForId?: string;
     } | null;
 
@@ -131,6 +134,34 @@ export default function Consultations() {
       setScheduleRequestId(null);
       queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
       queryClient.invalidateQueries({ queryKey: ['consultations'] });
+    },
+  });
+
+  // 상담 요청 수락/거절 mutation
+  const [acceptError, setAcceptError] = useState(false);
+
+  const acceptMutation = useMutation({
+    mutationFn: (consultationId: string) => consultationsApi.acceptConsultation(consultationId),
+    onSuccess: () => {
+      setAcceptError(false);
+    },
+    onError: () => {
+      setAcceptError(true);
+      setTimeout(() => setAcceptError(false), 3000);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+      queryClient.invalidateQueries({ queryKey: ['consultations'] });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      consultationsApi.rejectConsultation(id, reason),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor', 'consultations'] });
+      setRejectModalId(null);
+      setRejectReason('');
     },
   });
 
@@ -194,7 +225,7 @@ export default function Consultations() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
+      <header className="sticky top-[41px] lg:top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div>
             <h1 className="text-base font-bold text-slate-800">상담 관리</h1>
@@ -213,46 +244,44 @@ export default function Consultations() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-        {/* Requested */}
+        {/* Requested — 학생 상담 요청 */}
         {requested.length > 0 && (
           <div>
-            <h2 className="text-sm font-semibold text-indigo-700 mb-3">학생 상담 요청</h2>
+            <h2 className="text-sm font-semibold text-rose-700 mb-3">학생 상담 요청</h2>
             <div className="space-y-2">
               {requested.map((c) => {
-                const date = new Date(c.scheduledAt).toLocaleDateString('ko-KR', {
+                const date = new Date(c.scheduledAt ?? c.createdAt).toLocaleDateString('ko-KR', {
                   month: 'short', day: 'numeric',
                 });
                 return (
-                  <div key={c.id} className="bg-indigo-50/80 backdrop-blur-[12px] border border-indigo-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
+                  <div key={c.id} className="bg-rose-50/80 backdrop-blur-[12px] border border-rose-200 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:shadow-md transition-shadow">
                     <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-indigo-200 flex items-center justify-center text-xs font-bold text-indigo-700">
+                      <span className="text-sm text-rose-500 w-14 shrink-0">{date}</span>
+                      <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-700 shrink-0">
                         {(c.studentName ?? '?').charAt(0)}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-slate-800">{c.studentName ?? '학생'}</span>
-                          <TagChip label="요청됨" color="indigo" size="sm" />
-                        </div>
-                        {c.courseTitle && (
-                          <p className="text-xs text-slate-500 mt-0.5">{c.courseTitle}</p>
-                        )}
+                        <span className="text-sm font-medium text-slate-800">{c.studentName ?? '학생'}</span>
+                        <TagChip label="요청" color="rose" size="sm" className="ml-2" />
                         {c.notes && (
-                          <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">"{c.notes}"</p>
+                          <p className="text-xs text-slate-400 mt-0.5 max-w-md truncate">{c.notes}</p>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">{date}</span>
                       <button
-                        onClick={() => {
-                          setScheduleRequestId(String(c.id));
-                          setScheduleStudentId(String(c.studentId));
-                          setScheduleStudentName(c.studentName ?? '');
-                          setScheduleModalOpen(true);
-                        }}
-                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                        onClick={() => acceptMutation.mutate(String(c.id))}
+                        disabled={acceptMutation.isPending || rejectMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
                       >
-                        일정 잡기
+                        수락
+                      </button>
+                      <button
+                        onClick={() => { setRejectModalId(String(c.id)); setRejectReason(''); }}
+                        disabled={acceptMutation.isPending || rejectMutation.isPending}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                      >
+                        거절
                       </button>
                     </div>
                   </div>
@@ -349,6 +378,12 @@ export default function Consultations() {
           </div>
         )}
       </main>
+
+      {acceptError && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3 bg-rose-600 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg">
+          상담 수락에 실패했습니다. 다시 시도해주세요.
+        </div>
+      )}
 
       {/* 상담 예약 모달 */}
       <Modal isOpen={scheduleModalOpen} onClose={() => { setScheduleModalOpen(false); setScheduleRequestId(null); }} title="상담 예약" size="sm">
@@ -597,6 +632,35 @@ export default function Consultations() {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* 거절 사유 입력 모달 */}
+      <Modal isOpen={!!rejectModalId} onClose={() => { setRejectModalId(null); setRejectReason(''); }} title="상담 요청 거절">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">거절 사유를 입력하면 학생에게 표시됩니다.</p>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="거절 사유를 입력하세요 (선택사항)"
+            rows={3}
+            className="w-full px-4 py-2.5 rounded-lg border border-slate-300 text-sm resize-none focus:outline-none focus:border-indigo-400"
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => { setRejectModalId(null); setRejectReason(''); }}
+              className="px-4 py-2 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={() => rejectModalId && rejectMutation.mutate({ id: rejectModalId, reason: rejectReason || undefined })}
+              disabled={rejectMutation.isPending}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-50"
+            >
+              {rejectMutation.isPending ? '처리 중...' : '거절'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

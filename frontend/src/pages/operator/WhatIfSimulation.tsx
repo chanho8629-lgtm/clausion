@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { operatorApi } from '../../api/operator';
 import { twinApi } from '../../api/twin';
@@ -17,6 +17,12 @@ export default function WhatIfSimulation() {
   const [targetStudentId, setTargetStudentId] = useState('');
   const [targetCourseId, setTargetCourseId] = useState('');
   const [result, setResult] = useState<SimulationResult | null>(null);
+
+  // Clear stale result whenever the simulation inputs change — prevents a previous
+  // scenario's numbers from being mistaken for the current selection.
+  useEffect(() => {
+    setResult(null);
+  }, [scenarioType, targetStudentId, targetCourseId]);
 
   const { data: students } = useQuery({
     queryKey: ['operator', 'students'],
@@ -46,7 +52,7 @@ export default function WhatIfSimulation() {
       출석률: selectedStudent ? `${(selectedStudent.attendanceRate * 100).toFixed(0)}%` : '-',
       숙련도: studentTwin.masteryScore?.toFixed(0) ?? '-',
       동기_점수: studentTwin.motivationScore?.toFixed(0) ?? '-',
-      이탈_위험: `${((studentTwin.overallRiskScore ?? 0) * 100).toFixed(0)}%`,
+      이탈_위험: `${Math.round(studentTwin.overallRiskScore ?? 0)}%`,
     };
   }, [studentTwin, students, targetStudentId]);
 
@@ -64,9 +70,9 @@ export default function WhatIfSimulation() {
   };
 
   const scenarios = [
-    { value: 'ADD_CONSULTATION', label: '상담 배정', desc: '위험 수강생에게 교강사 1:1 상담을 배정하면 Twin 점수가 어떻게 변할까?' },
+    { value: 'ADD_CONSULTATION', label: '상담 배정', desc: '위험 수강생에게 강사 1:1 상담을 배정하면 Twin 점수가 어떻게 변할까?' },
     { value: 'ADD_SESSION', label: '보충 세션', desc: '난이도 높은 구간에 보충 수업을 추가하면 과정 수료율이 어떻게 변할까?' },
-    { value: 'REBALANCE_INSTRUCTOR', label: '교강사 재배정', desc: '과부하 교강사의 학생을 다른 교강사에게 이동하면 전체 성과가 어떻게 변할까?' },
+    { value: 'REBALANCE_INSTRUCTOR', label: '강사 재배정', desc: '과부하 강사의 학생을 다른 강사에게 이동하면 전체 성과가 어떻게 변할까?' },
   ];
 
   const scoreLabels: Record<string, string> = {
@@ -110,7 +116,12 @@ export default function WhatIfSimulation() {
             <label className="block text-sm font-medium text-slate-700 mb-1">대상 수강생</label>
             <select
               value={targetStudentId}
-              onChange={(e) => setTargetStudentId(e.target.value)}
+              onChange={(e) => {
+                const sid = e.target.value;
+                setTargetStudentId(sid);
+                const selected = students?.find(s => s.id === sid);
+                setTargetCourseId(selected?.courseId ?? '');
+              }}
               className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
             >
               <option value="">수강생 선택</option>
@@ -127,7 +138,13 @@ export default function WhatIfSimulation() {
               className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
             >
               <option value="">과정 선택</option>
-              {courses?.map((c) => (
+              {(targetStudentId
+                ? courses?.filter((c) => {
+                    const selectedStudent = students?.find(s => String(s.id) === String(targetStudentId));
+                    return String(selectedStudent?.courseId ?? '') === String(c.id);
+                  })
+                : courses
+              )?.map((c) => (
                 <option key={c.id} value={c.id}>{c.title}</option>
               ))}
             </select>

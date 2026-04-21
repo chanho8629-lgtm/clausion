@@ -13,6 +13,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('OPERATOR')")
 @RequestMapping("/api/operator")
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -26,7 +27,7 @@ public class OperatorReportController {
         List<StudentTwin> allTwins = studentTwinRepository.findAll();
 
         long atRiskCount = allTwins.stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .count();
         long decliningCount = allTwins.stream()
                 .filter(t -> "DECLINING".equals(t.getTrendDirection()))
@@ -99,7 +100,7 @@ public class OperatorReportController {
                     projectedScores.put("retentionRisk", Math.max(0, twin.getRetentionRiskScore().doubleValue() - 15));
                     projectedScores.put("overallRisk", Math.max(0, twin.getOverallRiskScore().doubleValue() - 10));
                     interpretation = "상담 배정 시 동기 점수가 +12, 이탈 위험이 -15% 개선될 것으로 예상됩니다. 특히 동기 부여 측면에서 가장 큰 효과가 기대됩니다.";
-                    recommendation = "즉시 상담 배정을 권장합니다. 교강사와의 1:1 면담이 이 수강생의 학습 지속에 가장 효과적인 개입입니다.";
+                    recommendation = "즉시 상담 배정을 권장합니다. 강사와의 1:1 면담이 이 수강생의 학습 지속에 가장 효과적인 개입입니다.";
                     confidence = 0.82;
                     break;
                 case "ADD_SESSION":
@@ -142,7 +143,7 @@ public class OperatorReportController {
     @GetMapping("/ai/intervention-suggestions")
     public ResponseEntity<List<Map<String, Object>>> getInterventionSuggestions() {
         List<StudentTwin> atRiskTwins = studentTwinRepository.findAll().stream()
-                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("0.7")) > 0)
+                .filter(t -> t.getOverallRiskScore().compareTo(new BigDecimal("70")) > 0)
                 .sorted((a, b) -> b.getOverallRiskScore().compareTo(a.getOverallRiskScore()))
                 .limit(10)
                 .collect(Collectors.toList());
@@ -154,12 +155,12 @@ public class OperatorReportController {
             m.put("courseTitle", t.getCourse().getTitle());
 
             double risk = t.getOverallRiskScore().doubleValue();
-            if (risk >= 0.85) {
+            if (risk >= 85) {
                 m.put("suggestedAction", "긴급 1:1 상담 배정 + 보충 자료 제공");
                 m.put("urgency", "HIGH");
                 m.put("expectedImpact", "이탈 위험 -20% 예상");
             } else {
-                m.put("suggestedAction", "교강사에게 주의 알림 + 학습 점검");
+                m.put("suggestedAction", "강사에게 주의 알림 + 학습 점검");
                 m.put("urgency", "MEDIUM");
                 m.put("expectedImpact", "이탈 위험 -10% 예상");
             }

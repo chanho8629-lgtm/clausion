@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { operatorApi } from '../../api/operator';
 import GlassCard from '../../components/common/GlassCard';
+import Skeleton from '../../components/common/Skeleton';
 
 export default function InstructorManagement() {
   const { data: instructors, isLoading } = useQuery({
@@ -11,12 +12,14 @@ export default function InstructorManagement() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">교강사 관리</h1>
-        <p className="text-sm text-slate-500 mt-1">교강사 업무량 현황 및 배정 관리</p>
+        <h1 className="text-2xl font-extrabold text-slate-900">강사 관리</h1>
+        <p className="text-sm text-slate-500 mt-1">강사 업무량 현황 및 배정 관리</p>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-slate-400">로딩 중...</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} variant="card" />)}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {instructors?.map((inst) => (
@@ -47,7 +50,7 @@ export default function InstructorManagement() {
             </GlassCard>
           ))}
           {instructors?.length === 0 && (
-            <p className="text-sm text-slate-400 col-span-full text-center py-8">등록된 교강사가 없습니다.</p>
+            <p className="text-sm text-slate-400 col-span-full text-center py-8">등록된 강사가 없습니다.</p>
           )}
         </div>
       )}

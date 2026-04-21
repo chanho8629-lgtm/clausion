@@ -1,4 +1,5 @@
 import { api } from './client';
+import { toApiUrl } from '../lib/apiBase';
 import type { Course, CurriculumSkill } from '../types';
 
 export const coursesApi = {
@@ -10,7 +11,7 @@ export const coursesApi = {
     return api.get<Course>(`/api/courses/${courseId}`);
   },
 
-  createCourse(data: { title: string; description: string; schedule?: string; classTime?: string; startDate?: string; endDate?: string }): Promise<Course> {
+  createCourse(data: { title: string; description: string; schedule?: string; classTime?: string; startDate?: string; endDate?: string; maxCapacity?: number }): Promise<Course> {
     return api.post<Course>('/api/courses', data);
   },
 
@@ -25,8 +26,7 @@ export const coursesApi = {
     if (opts?.additionalPrompt) formData.append('additionalPrompt', opts.additionalPrompt);
 
     const token = localStorage.getItem('token');
-    const BASE_URL = import.meta.env.VITE_API_URL ?? '';
-    return fetch(`${BASE_URL}/api/courses/${courseId}/curriculum`, {
+    return fetch(toApiUrl(`/api/courses/${courseId}/curriculum`), {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,

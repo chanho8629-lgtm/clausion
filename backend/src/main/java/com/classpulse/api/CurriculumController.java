@@ -1,7 +1,10 @@
 package com.classpulse.api;
 
 import com.classpulse.ai.CurriculumAnalyzer;
+import com.classpulse.config.CourseAccessGuard;
+import com.classpulse.config.SecurityUtil;
 import com.classpulse.domain.course.*;
+import com.classpulse.domain.twin.SkillMasterySnapshotRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -29,6 +32,8 @@ public class CurriculumController {
     private final CurriculumSkillRepository skillRepository;
     private final AsyncJobRepository asyncJobRepository;
     private final CurriculumAsyncService curriculumAsyncService;
+    private final SkillMasterySnapshotRepository snapshotRepository;
+    private final CourseAccessGuard courseAccessGuard;
 
     // --- DTOs ---
 
@@ -59,8 +64,7 @@ public class CurriculumController {
             @PathVariable Long courseId,
             @RequestBody AnalyzeTextRequest request
     ) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+        Course course = courseAccessGuard.assertInstructorOwns(courseId, SecurityUtil.getCurrentUserId());
 
         String courseName = request.courseName() != null ? request.courseName() : course.getTitle();
 
@@ -103,8 +107,7 @@ public class CurriculumController {
             @RequestParam(value = "target", required = false, defaultValue = "") String target,
             @RequestParam(value = "additionalPrompt", required = false, defaultValue = "") String additionalPrompt
     ) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+        courseAccessGuard.assertInstructorOwns(courseId, SecurityUtil.getCurrentUserId());
 
         String content;
         try {
@@ -141,12 +144,15 @@ public class CurriculumController {
         return ResponseEntity.ok(skills.stream().map(SkillResponse::from).toList());
     }
 
+    @Transactional
     @PutMapping("/skills/{skillId}")
     public ResponseEntity<SkillResponse> updateSkill(
             @PathVariable Long courseId,
             @PathVariable Long skillId,
             @RequestBody UpdateSkillRequest request
     ) {
+        courseAccessGuard.assertInstructorOwns(courseId, SecurityUtil.getCurrentUserId());
+
         CurriculumSkill skill = skillRepository.findById(skillId)
                 .orElseThrow(() -> new IllegalArgumentException("Skill not found: " + skillId));
 
@@ -167,8 +173,7 @@ public class CurriculumController {
             @PathVariable Long courseId,
             @RequestBody CreateSkillRequest request
     ) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+        Course course = courseAccessGuard.assertInstructorOwns(courseId, SecurityUtil.getCurrentUserId());
 
         CurriculumSkill skill = CurriculumSkill.builder()
                 .course(course)
@@ -183,8 +188,7 @@ public class CurriculumController {
     @PostMapping("/skills/defaults")
     @Transactional
     public ResponseEntity<List<SkillResponse>> createDefaultSkills(@PathVariable Long courseId) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+        Course course = courseAccessGuard.assertInstructorOwns(courseId, SecurityUtil.getCurrentUserId());
 
         // 이미 스킬이 있으면 중복 생성 방지
         if (!skillRepository.findByCourseId(courseId).isEmpty()) {
@@ -234,16 +238,14 @@ public class CurriculumController {
     @PostMapping("/curriculum/recover-weeks")
     @Transactional
     public ResponseEntity<Map<String, Object>> recoverWeeks(@PathVariable Long courseId) {
-        Course course = courseRepository.findById(courseId)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found: " + courseId));
+        Course course = courseAccessGuard.assertInstructorOwns(courseId, SecurityUtil.getCurrentUserId());
 
         if (!course.getWeeks().isEmpty()) {
             return ResponseEntity.ok(Map.of("message", "Weeks already exist", "count", course.getWeeks().size()));
         }
 
         // Find completed curriculum analysis jobs for this course
-        List<AsyncJob> jobs = asyncJobRepository.findAll().stream()
-                .filter(j -> "CURRICULUM_ANALYSIS".equals(j.getJobType()) && "COMPLETED".equals(j.getStatus()))
+        List<AsyncJob> jobs = asyncJobRepository.findByJobTypeAndStatus("CURRICULUM_ANALYSIS", "COMPLETED").stream()
                 .filter(j -> j.getResultPayload() != null && courseId.equals(toLong(j.getResultPayload().get("courseId"))))
                 .toList();
 
@@ -310,17 +312,29 @@ public class CurriculumController {
         return null;
     }
 
+    @Transactional
     @DeleteMapping("/skills/{skillId}")
     public ResponseEntity<Void> deleteSkill(
             @PathVariable Long courseId,
             @PathVariable Long skillId
     ) {
+        courseAccessGuard.assertInstructorOwns(courseId, SecurityUtil.getCurrentUserId());
+
         CurriculumSkill skill = skillRepository.findById(skillId)
                 .orElseThrow(() -> new IllegalArgumentException("Skill not found: " + skillId));
 
         if (!skill.getCourse().getId().equals(courseId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+
+        // Clear all FK references before deleting
+        skillRepository.deletePrerequisiteLinks(skillId);
+        skillRepository.nullifyQuestionSkillLinks(skillId);
+        skillRepository.nullifyCodeFeedbackSkillLinks(skillId);
+        skillRepository.nullifyReviewTaskSkillLinks(skillId);
+        skillRepository.nullifyCodeSubmissionSkillLinks(skillId);
+        skillRepository.nullifyActionPlanSkillLinks(skillId);
+        snapshotRepository.deleteBySkillId(skillId);
 
         skillRepository.delete(skill);
         return ResponseEntity.noContent().build();

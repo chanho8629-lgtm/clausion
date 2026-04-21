@@ -24,11 +24,11 @@ export default function OperatorLogin() {
     try {
       const user = await login(email, password);
       if (user.role !== 'OPERATOR') {
-        setError('운영자 계정이 아닙니다. 교강사/수강생은 일반 로그인 페이지를 이용하세요.');
+        setError('운영자 계정이 아닙니다. 강사/수강생은 일반 로그인 페이지를 이용하세요.');
         useAuthStore.getState().logout();
         return;
       }
-      navigate('/operator');
+      navigate('/operator', { replace: true });
     } catch {
       setError('로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
     } finally {
@@ -39,11 +39,34 @@ export default function OperatorLogin() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    // Client-side validation — operator has elevated privileges so password rules are stricter.
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const trimmedInvite = inviteCode.trim();
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+
+    if (!trimmedEmail || !emailOk) {
+      setError('올바른 이메일 주소를 입력해주세요.');
+      return;
+    }
+    if (!trimmedName) {
+      setError('이름을 입력해주세요.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 합니다.');
+      return;
+    }
+    if (!trimmedInvite) {
+      setError('초대 코드를 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      await register(email, password, name, 'OPERATOR', inviteCode);
-      navigate('/operator');
+      await register(trimmedEmail, password, trimmedName, 'OPERATOR', trimmedInvite);
+      navigate('/operator', { replace: true });
     } catch {
       setError('가입에 실패했습니다. 초대 코드가 유효한지 확인해주세요.');
     } finally {
@@ -156,7 +179,7 @@ export default function OperatorLogin() {
           )}
 
           <p className="text-center text-sm text-slate-500 mt-6">
-            교강사/수강생 로그인은{' '}
+            강사/수강생 로그인은{' '}
             <Link to="/login" className="text-indigo-600 font-medium hover:text-indigo-700">여기</Link>
           </p>
         </div>

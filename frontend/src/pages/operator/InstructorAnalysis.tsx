@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { operatorApi } from '../../api/operator';
 import GlassCard from '../../components/common/GlassCard';
+import Skeleton from '../../components/common/Skeleton';
 
 export default function InstructorAnalysis() {
   const { data: effectiveness, isLoading: effLoading } = useQuery({
@@ -19,12 +20,15 @@ export default function InstructorAnalysis() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">교강사 효과성 분석</h1>
-        <p className="text-sm text-slate-500 mt-1">교강사 간 성과 비교 및 업무 부하 균형 분석 - 교강사가 볼 수 없는 횡단 비교</p>
+        <h1 className="text-2xl font-extrabold text-slate-900">강사 효과성 분석</h1>
+        <p className="text-sm text-slate-500 mt-1">강사 간 성과 비교 및 업무 부하 균형 분석 - 강사가 볼 수 없는 횡단 비교</p>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-slate-400">분석 데이터 로딩 중...</p>
+        <div className="space-y-4">
+          <Skeleton variant="card" />
+          <Skeleton variant="chart" />
+        </div>
       ) : (
         <>
           {/* Workload Balance */}
@@ -33,16 +37,17 @@ export default function InstructorAnalysis() {
             {workload && workload.length > 0 ? (
               <div className="space-y-3">
                 {workload.map((inst) => {
-                  const pct = Math.min(inst.workloadScore, 100);
+                  const cap = inst.totalCapacity ?? 1;
+                  const fillPct = cap > 0 ? Math.min(Math.round((inst.studentCount / cap) * 100), 100) : 0;
                   const barColor =
-                    pct >= 90 ? 'bg-rose-500'
-                    : pct >= 70 ? 'bg-orange-400'
-                    : pct >= 50 ? 'bg-amber-400'
-                    : pct >= 30 ? 'bg-sky-400'
+                    fillPct >= 90 ? 'bg-rose-500'
+                    : fillPct >= 70 ? 'bg-orange-400'
+                    : fillPct >= 50 ? 'bg-amber-400'
+                    : fillPct >= 30 ? 'bg-sky-400'
                     : 'bg-emerald-400';
                   const pctColor =
-                    pct >= 90 ? 'text-rose-600'
-                    : pct >= 70 ? 'text-orange-600'
+                    fillPct >= 90 ? 'text-rose-600'
+                    : fillPct >= 70 ? 'text-orange-600'
                     : 'text-slate-500';
                   return (
                     <div key={inst.id} className="flex items-center gap-4">
@@ -52,16 +57,16 @@ export default function InstructorAnalysis() {
                           <div className="flex-1 h-4 bg-slate-100 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all ${barColor}`}
-                              style={{ width: `${pct}%` }}
+                              style={{ width: `${fillPct}%` }}
                             />
                           </div>
                           <span className={`text-xs font-bold w-10 ${pctColor}`}>
-                            {pct.toFixed(0)}%
+                            {fillPct}%
                           </span>
                         </div>
                       </div>
                       <div className="flex gap-3 text-xs text-slate-500">
-                        <span>{inst.studentCount}/{inst.courseCount * 30}명</span>
+                        <span>{inst.studentCount}/{cap}명</span>
                         <span>상담 {inst.consultationCount}</span>
                         <span>과정 {inst.courseCount}</span>
                       </div>
@@ -73,13 +78,13 @@ export default function InstructorAnalysis() {
                 })}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">교강사 데이터가 없습니다.</p>
+              <p className="text-sm text-slate-400">강사 데이터가 없습니다.</p>
             )}
           </GlassCard>
 
           {/* Performance Comparison Chart */}
           <GlassCard className="p-5">
-            <h2 className="text-sm font-bold text-slate-900 mb-4">학생 성과 비교 (교강사별 평균 Twin 점수)</h2>
+            <h2 className="text-sm font-bold text-slate-900 mb-4">학생 성과 비교 (강사별 평균 Twin 점수)</h2>
             {effectiveness && effectiveness.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={effectiveness} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -95,7 +100,7 @@ export default function InstructorAnalysis() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-slate-400">비교할 교강사 데이터가 없습니다.</p>
+              <p className="text-sm text-slate-400">비교할 강사 데이터가 없습니다.</p>
             )}
           </GlassCard>
 

@@ -33,13 +33,29 @@ export const consultationsApi = {
     return api.post('/api/consultations/request', data);
   },
 
-  createSummary(
+  acceptConsultation(consultationId: string): Promise<Consultation> {
+    return api.put<Consultation>(`/api/consultations/${consultationId}/accept`, {});
+  },
+
+  rejectConsultation(consultationId: string, reason?: string): Promise<Consultation> {
+    return api.put<Consultation>(`/api/consultations/${consultationId}/reject`, reason ? { reason } : {});
+  },
+
+  updateNotes(consultationId: string, notes: string): Promise<Consultation> {
+    return api.put<Consultation>(`/api/consultations/${consultationId}/notes`, { notes });
+  },
+
+  saveSummary(
     consultationId: string,
-    data: { summaryText: string; actionPlanJson: string },
-  ): Promise<{ jobId: number }> {
-    return api.post<{ jobId: number }>(
+    data: { summaryText: string; causeAnalysis?: string; actionPlanJson: string },
+  ): Promise<Consultation> {
+    return api.post<Consultation>(
       `/api/consultations/${consultationId}/summary`,
       data,
     );
+  },
+
+  endVideo(consultationId: string): Promise<{ consultationId: number; roomName: string; status: string }> {
+    return api.post(`/api/consultations/${consultationId}/end-video`);
   },
 };

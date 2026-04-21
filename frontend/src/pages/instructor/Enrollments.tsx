@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { instructorApi, type EnrollmentEntry } from '../../api/instructor';
 import { useCourses } from '../../hooks/useCourseId';
+import Skeleton from '../../components/common/Skeleton';
 
 const statusConfig: Record<string, { label: string; cls: string }> = {
   PENDING: { label: '대기', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -40,19 +42,27 @@ export default function Enrollments() {
   });
 
   const approveMut = useMutation({
-    mutationFn: (enrollmentId: number) => instructorApi.approveEnrollment(courseId!, enrollmentId),
+    mutationFn: (enrollmentId: number) => {
+      if (!courseId) throw new Error('과정이 선택되지 않았습니다.');
+      return instructorApi.approveEnrollment(courseId, enrollmentId);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instructor', 'enrollments', courseId] });
       queryClient.invalidateQueries({ queryKey: ['instructor', 'students', courseId] });
       setConfirm(null);
+      toast.success('수강 신청을 승인했습니다.');
     },
   });
 
   const rejectMut = useMutation({
-    mutationFn: (enrollmentId: number) => instructorApi.rejectEnrollment(courseId!, enrollmentId),
+    mutationFn: (enrollmentId: number) => {
+      if (!courseId) throw new Error('과정이 선택되지 않았습니다.');
+      return instructorApi.rejectEnrollment(courseId, enrollmentId);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['instructor', 'enrollments', courseId] });
       setConfirm(null);
+      toast.success('수강 신청을 반려했습니다.');
     },
   });
 
@@ -61,7 +71,7 @@ export default function Enrollments() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
+      <header className="sticky top-[41px] lg:top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
           <div className="shrink-0">
             <h1 className="text-base font-bold text-slate-800">수강 승인</h1>
@@ -109,7 +119,7 @@ export default function Enrollments() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {coursesLoading && (
-          <p className="text-sm text-slate-400 text-center py-12">불러오는 중...</p>
+          <Skeleton variant="list" rows={3} />
         )}
 
         {!coursesLoading && !courseId && (
@@ -117,7 +127,7 @@ export default function Enrollments() {
         )}
 
         {courseId && loading && (
-          <p className="text-sm text-slate-400 text-center py-12">불러오는 중...</p>
+          <Skeleton variant="list" rows={3} />
         )}
 
         {courseId && !loading && items.length === 0 && (
@@ -176,14 +186,14 @@ export default function Enrollments() {
                           <div className="flex items-center justify-center gap-2">
                             <button
                               onClick={() => setConfirm({ action: 'approve', entry: e })}
-                              disabled={approveMut.isPending}
+                              disabled={!courseId || approveMut.isPending}
                               className="px-3 py-1 text-xs font-medium rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
                             >
                               승인
                             </button>
                             <button
                               onClick={() => setConfirm({ action: 'reject', entry: e })}
-                              disabled={rejectMut.isPending}
+                              disabled={!courseId || rejectMut.isPending}
                               className="px-3 py-1 text-xs font-medium rounded-lg border border-rose-300 text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
                             >
                               거절
@@ -234,7 +244,8 @@ export default function Enrollments() {
                     rejectMut.mutate(confirm.entry.enrollmentId);
                   }
                 }}
-                className={`px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors ${
+                disabled={!courseId || approveMut.isPending || rejectMut.isPending}
+                className={`px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   confirm.action === 'approve'
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : 'bg-rose-500 hover:bg-rose-600'

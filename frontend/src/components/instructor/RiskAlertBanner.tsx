@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { instructorApi } from '../../api/instructor';
+import { consultationsApi } from '../../api/consultations';
+import { api } from '../../api/client';
+import { useAuthStore } from '../../store/authStore';
 import { useCourseId } from '../../hooks/useCourseId';
 import TagChip from '../common/TagChip';
 
@@ -16,6 +19,8 @@ const PAGE_SIZE = 5;
 export default function RiskAlertBanner() {
   const courseId = useCourseId();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const [callingStudentId, setCallingStudentId] = useState<string | null>(null);
   const [page, setPage] = useState(0);
 
   const { data: students = [] } = useQuery({
@@ -88,10 +93,26 @@ export default function RiskAlertBanner() {
                 상담 예약
               </button>
               <button
-                onClick={() => navigate('/instructor/consultations', { state: { preselectedStudentId: s.id, preselectedStudentName: s.name, immediateContact: true } })}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                disabled={callingStudentId === s.id}
+                onClick={async () => {
+                  setCallingStudentId(s.id);
+                  try {
+                    const consultation = await consultationsApi.createConsultation({
+                      studentId: Number(s.id),
+                      instructorId: Number(user?.id ?? 0),
+                      courseId: Number(courseId),
+                      scheduledAt: new Date().toISOString(),
+                    });
+                    await api.post(`/api/consultations/${consultation.id}/start-video`);
+                    navigate(`/instructor/consultation/${consultation.id}/video`);
+                  } catch {
+                    alert('즉시 연락을 시작할 수 없습니다.');
+                    setCallingStudentId(null);
+                  }
+                }}
+                className="px-3 py-1.5 text-xs font-medium rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors disabled:opacity-50"
               >
-                즉시 연락
+                {callingStudentId === s.id ? '연결 중...' : '즉시 연락'}
               </button>
             </div>
           </div>

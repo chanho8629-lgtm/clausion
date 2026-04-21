@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { operatorApi } from '../../api/operator';
 import GlassCard from '../../components/common/GlassCard';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export default function AttendanceManagement() {
   const queryClient = useQueryClient();
+  const { confirm, confirmNode } = useConfirm();
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
@@ -39,6 +42,7 @@ export default function AttendanceManagement() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['operator', 'attendance'] });
       queryClient.invalidateQueries({ queryKey: ['operator', 'attendance-stats'] });
+      toast.success('출결을 저장했습니다.');
     },
   });
 
@@ -71,8 +75,14 @@ export default function AttendanceManagement() {
     }
   };
 
-  const handleMarkAllPresent = () => {
+  const handleMarkAllPresent = async () => {
     if (!records) return;
+    const ok = await confirm({
+      title: '전원 출석 표시',
+      message: `${records.length}명 전원을 '출석'으로 표시합니다.\n저장 전에 개별 조정이 가능합니다.`,
+      confirmLabel: '전원 출석',
+    });
+    if (!ok) return;
     const all: Record<string, string> = {};
     records.forEach((r) => { all[r.studentId] = 'PRESENT'; });
     setLocalRecords(all);
@@ -127,14 +137,14 @@ export default function AttendanceManagement() {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <GlassCard className="p-4 text-center">
             <p className="text-2xl font-extrabold text-slate-900">{stats.totalSessions}</p>
             <p className="text-xs text-slate-500">총 세션</p>
           </GlassCard>
           <GlassCard className="p-4 text-center">
-            <p className={`text-2xl font-extrabold ${stats.avgAttendanceRate < 0.8 ? 'text-amber-600' : 'text-emerald-600'}`}>
-              {(stats.avgAttendanceRate * 100).toFixed(0)}%
+            <p className={`text-2xl font-extrabold ${(stats.avgAttendanceRate ?? 0) < 0.8 ? 'text-amber-600' : 'text-emerald-600'}`}>
+              {((stats.avgAttendanceRate ?? 0) * 100).toFixed(0)}%
             </p>
             <p className="text-xs text-slate-500">평균 출석률</p>
           </GlassCard>
@@ -252,6 +262,7 @@ export default function AttendanceManagement() {
           <p className="text-slate-400">과정을 선택하면 출결 관리를 시작할 수 있습니다.</p>
         </GlassCard>
       )}
+      {confirmNode}
     </div>
   );
 }

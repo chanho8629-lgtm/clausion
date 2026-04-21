@@ -29,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProvider jwtProvider;
+    private final JwtBlocklist jwtBlocklist;
 
     @Override
     protected void doFilterInternal(
@@ -39,7 +40,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = extractTokenFromRequest(request);
 
-            if (token != null && jwtProvider.validateToken(token)) {
+            if (token != null && jwtProvider.validateToken(token) && !jwtBlocklist.isRevoked(token)) {
                 Long userId = jwtProvider.extractUserId(token);
                 String rolesStr = jwtProvider.extractRoles(token);
 
@@ -68,18 +69,29 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith(BEARER_PREFIX)) {
             return bearerToken.substring(BEARER_PREFIX.length());
         }
-        // Also check query parameter for WebSocket connections
-        String tokenParam = request.getParameter("token");
-        if (StringUtils.hasText(tokenParam)) {
-            return tokenParam;
+        // SSE endpoints are the one exception where query-param tokens are allowed.
+        // EventSource (the browser API) cannot attach custom headers, so
+        // `?token=...` is the only viable auth for these streams. STOMP uses its
+        // own CONNECT frame and does NOT fall back here.
+        if (isSsePath(request.getServletPath())) {
+            String tokenParam = request.getParameter("token");
+            if (StringUtils.hasText(tokenParam)) {
+                return tokenParam;
+            }
         }
         return null;
+    }
+
+    private boolean isSsePath(String path) {
+        if (path == null) return false;
+        return path.equals("/api/notifications/stream")
+                || (path.startsWith("/api/chatbot/conversations/") && path.endsWith("/stream"));
     }
 
     @Override
     protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
         String path = request.getServletPath();
-        // Skip filter for login/register but NOT for /api/auth/me which needs auth
-        return path.startsWith("/api/auth/") && !path.equals("/api/auth/me");
+        // Only skip JWT filter for login and register endpoints
+        return path.equals("/api/auth/login") || path.equals("/api/auth/register");
     }
 }

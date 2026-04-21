@@ -94,12 +94,23 @@ public class GroupChatController {
             return;
         }
 
-        // Persist to DB
+        String content = request.content() != null ? request.content().trim() : "";
         boolean isFile = request.fileKey() != null && !request.fileKey().isBlank();
+        if (!isFile && content.isBlank()) {
+            log.debug("Ignored blank group chat message - groupId={}, senderId={}", groupId, userId);
+            return;
+        }
+
+        String resolvedContent = isFile
+                ? (content.isBlank() ? Optional.ofNullable(request.fileName()).orElse("") : content)
+                : content;
+        // Server-side HTML escape — if any UI later renders chat as HTML, it's already safe.
+        String safeContent = com.classpulse.config.HtmlSanitizer.escape(resolvedContent);
+
         StudyGroupMessage message = StudyGroupMessage.builder()
                 .studyGroup(group)
                 .sender(sender)
-                .content(request.content() != null ? request.content() : "")
+                .content(safeContent)
                 .messageType(isFile ? "FILE" : "TEXT")
                 .fileKey(isFile ? request.fileKey() : null)
                 .fileName(isFile ? request.fileName() : null)

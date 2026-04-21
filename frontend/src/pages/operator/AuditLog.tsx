@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { operatorApi } from '../../api/operator';
 import GlassCard from '../../components/common/GlassCard';
+import Skeleton from '../../components/common/Skeleton';
 
 const actionLabels: Record<string, string> = {
   COURSE_APPROVE: '과정 승인',
@@ -16,18 +17,29 @@ const actionLabels: Record<string, string> = {
 const targetLabels: Record<string, string> = {
   COURSE: '과정',
   STUDENT: '수강생',
-  INSTRUCTOR: '교강사',
+  INSTRUCTOR: '강사',
   ANNOUNCEMENT: '공지사항',
   ATTENDANCE: '출결',
 };
 
 export default function AuditLog() {
   const [page, setPage] = useState(0);
+  const [actionFilter, setActionFilter] = useState<string>('');
+  const [targetFilter, setTargetFilter] = useState<string>('');
+
+  const filters = { actionType: actionFilter || undefined, targetType: targetFilter || undefined };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['operator', 'audit-logs', page],
-    queryFn: () => operatorApi.getAuditLogs(page),
+    queryKey: ['operator', 'audit-logs', page, actionFilter, targetFilter],
+    queryFn: () => operatorApi.getAuditLogs(page, 20, filters),
   });
+
+  // Reset page when filter changes so user isn't stuck on a nonexistent page.
+  const onActionChange = (v: string) => { setActionFilter(v); setPage(0); };
+  const onTargetChange = (v: string) => { setTargetFilter(v); setPage(0); };
+  const clearFilters = () => { setActionFilter(''); setTargetFilter(''); setPage(0); };
+
+  const hasActiveFilter = actionFilter !== '' || targetFilter !== '';
 
   return (
     <div className="space-y-6">
@@ -36,12 +48,45 @@ export default function AuditLog() {
         <p className="text-sm text-slate-500 mt-1">운영자 활동 이력 추적</p>
       </div>
 
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={actionFilter}
+          onChange={(e) => onActionChange(e.target.value)}
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-400"
+        >
+          <option value="">모든 행위</option>
+          {Object.entries(actionLabels).map(([k, label]) => (
+            <option key={k} value={k}>{label}</option>
+          ))}
+        </select>
+        <select
+          value={targetFilter}
+          onChange={(e) => onTargetChange(e.target.value)}
+          className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 bg-white focus:outline-none focus:border-indigo-400"
+        >
+          <option value="">모든 대상</option>
+          {Object.entries(targetLabels).map(([k, label]) => (
+            <option key={k} value={k}>{label}</option>
+          ))}
+        </select>
+        {hasActiveFilter && (
+          <button
+            onClick={clearFilters}
+            className="px-3 py-1.5 text-sm rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50"
+          >
+            필터 초기화
+          </button>
+        )}
+      </div>
+
       {isLoading ? (
-        <p className="text-sm text-slate-400">로딩 중...</p>
+        <Skeleton variant="table" rows={8} />
       ) : (
         <>
           <GlassCard className="overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
+            <div className="md:hidden text-[11px] text-slate-400 px-4 pt-3">← 가로로 스크롤하세요</div>
             <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">

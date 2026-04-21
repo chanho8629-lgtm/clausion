@@ -6,7 +6,7 @@ import type { Consultation } from '../../types';
 export default function UpcomingConsultationPanel() {
   const navigate = useNavigate();
 
-  const { data: consultations = [] } = useQuery({
+  const { data: consultations = [] } = useQuery<Consultation[]>({
     queryKey: ['instructor', 'upcoming-consultations'],
     queryFn: async () => {
       const all = await consultationsApi.getConsultations('instructor');

@@ -1,16 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { startTransition, useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Client } from '@stomp/stompjs';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ApiError } from '../../api/client';
 import { groupChatApi } from '../../api/groupChat';
 import { studyGroupApi } from '../../api/studyGroup';
+import { toApiUrl } from '../../lib/apiBase';
 import { useAuthStore } from '../../store/authStore';
 import type { GroupChatMessage, StudyGroup } from '../../types';
 
 export default function GroupChat() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, token } = useAuthStore();
   const userId = user?.id ? Number(user.id) : 0;
 
@@ -22,30 +25,89 @@ export default function GroupChat() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const roomClosedRef = useRef(false);
+
+  const exitClosedRoom = useCallback((message: string) => {
+    if (roomClosedRef.current) return;
+
+    roomClosedRef.current = true;
+    setConnected(false);
+    void queryClient.invalidateQueries({ queryKey: ['my-study-groups'] });
+    void queryClient.invalidateQueries({ queryKey: ['course-study-groups'] });
+    void queryClient.invalidateQueries({ queryKey: ['study-group', groupId] });
+    void queryClient.invalidateQueries({ queryKey: ['group-chat-history', groupId] });
+    if (clientRef.current) {
+      void clientRef.current.deactivate();
+      clientRef.current = null;
+    }
+    window.alert(message);
+    startTransition(() => {
+      navigate('/student/study-groups', { replace: true });
+    });
+  }, [groupId, navigate, queryClient]);
 
   // Fetch group info
-  const { data: group } = useQuery<StudyGroup>({
+  const { data: group, error: groupError } = useQuery<StudyGroup>({
     queryKey: ['study-group', groupId],
     queryFn: () => studyGroupApi.getStudyGroup(groupId!),
     enabled: !!groupId,
+    retry: false,
   });
 
-  // Fetch chat history
-  const { data: history } = useQuery<GroupChatMessage[]>({
+  // Fetch chat history. WS is the source of truth for live updates while the user
+  // is in the room, so focus-refetch is disabled (it would clobber WS deltas). On
+  // remount (room re-entry), we still want fresh history — the merge effect below
+  // preserves any in-flight WS messages.
+  const { data: history, error: historyError } = useQuery<GroupChatMessage[]>({
     queryKey: ['group-chat-history', groupId],
     queryFn: () => groupChatApi.getMessages(groupId!),
     enabled: !!groupId,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
     refetchInterval: false,
     staleTime: 0,
+    retry: false,
   });
 
-  // Load history into messages when entering or switching rooms
+  // Clear buffered messages when switching rooms so the next merge doesn't leak
+  // the previous group's messages into the new one.
   useEffect(() => {
-    if (history) {
-      setMessages(history);
-    }
+    setMessages([]);
+  }, [groupId]);
+
+  // Merge history with any messages already buffered from the WS subscription.
+  // Prevents losing messages that arrive between first render and initial history fetch.
+  useEffect(() => {
+    if (!history) return;
+    setMessages((prev) => {
+      const byId = new Map<number, GroupChatMessage>();
+      for (const m of history) byId.set(m.id, m);
+      for (const m of prev) if (!byId.has(m.id)) byId.set(m.id, m);
+      return Array.from(byId.values()).sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
+    });
   }, [history, groupId]);
+
+  useEffect(() => {
+    const error = groupError ?? historyError;
+    if (!(error instanceof ApiError)) return;
+
+    const normalized = error.message.toLowerCase();
+    const roomMissing =
+      error.status === 404 ||
+      error.status === 403 ||
+      (error.status === 400 && normalized.includes('group not found')) ||
+      (error.status === 400 && normalized.includes('study group not found'));
+
+    if (!roomMissing) return;
+
+    exitClosedRoom(
+      error.status === 403
+        ? '더 이상 참여 중인 채팅방이 아닙니다.'
+        : '채팅방이 삭제되었거나 더 이상 사용할 수 없습니다.',
+    );
+  }, [exitClosedRoom, groupError, historyError]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -59,8 +121,11 @@ export default function GroupChat() {
     const apiUrl = import.meta.env.VITE_API_URL ?? '';
     const wsUrl = apiUrl ? apiUrl.replace(/^http/, 'ws') : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
 
+    // Token is sent via the STOMP CONNECT frame (connectHeaders), never in the URL.
+    // The server's StompChannelInterceptor validates it at the frame level.
     const client = new Client({
-      brokerURL: `${wsUrl}/ws-chat?token=${token}`,
+      brokerURL: `${wsUrl}/ws-chat`,
+      connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 5000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
@@ -68,6 +133,10 @@ export default function GroupChat() {
         setConnected(true);
         client.subscribe(`/topic/group-chat/${groupId}`, (frame) => {
           const msg: GroupChatMessage = JSON.parse(frame.body);
+          if (msg.messageType === 'ROOM_DELETED') {
+            exitClosedRoom(msg.content || '채팅방이 종료되었습니다.');
+            return;
+          }
           setMessages((prev) => {
             // Deduplicate by id
             if (msg.id && prev.some((m) => m.id === msg.id)) return prev;
@@ -86,10 +155,10 @@ export default function GroupChat() {
     clientRef.current = client;
 
     return () => {
-      client.deactivate();
+      void client.deactivate();
       clientRef.current = null;
     };
-  }, [groupId, token]);
+  }, [exitClosedRoom, groupId, token]);
 
   const sendMessage = useCallback(() => {
     const text = input.trim();
@@ -117,8 +186,7 @@ export default function GroupChat() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const baseUrl = import.meta.env.VITE_API_URL ?? '';
-      const res = await fetch(`${baseUrl}/api/files/upload`, {
+      const res = await fetch(toApiUrl('/api/files/upload'), {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
@@ -176,8 +244,7 @@ export default function GroupChat() {
 
   const handleFileDownload = async (fileKey: string, _fileName: string) => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL ?? '';
-      const res = await fetch(`${baseUrl}/api/files/download-url?fileKey=${encodeURIComponent(fileKey)}`, {
+      const res = await fetch(`${toApiUrl('/api/files/download-url')}?fileKey=${encodeURIComponent(fileKey)}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error();
@@ -205,12 +272,13 @@ export default function GroupChat() {
   return (
     <div className="flex flex-col h-[calc(100dvh-56px)] sm:h-[calc(100vh-64px)] bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+      <header className="sticky top-[41px] lg:top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
         <button
           onClick={() => navigate('/student/study-groups')}
+          aria-label="스터디 그룹 목록으로 돌아가기"
           className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
         >
-          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -383,6 +451,7 @@ export default function GroupChat() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={!connected || uploading}
+            aria-label="파일 첨부"
             className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             title="파일 첨부"
           >

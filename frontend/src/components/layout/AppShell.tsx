@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import IncomingCallModal from '../consultation/IncomingCallModal';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -18,11 +18,20 @@ interface CallInfo {
   courseName?: string;
 }
 
+interface ToastInfo {
+  id: string;
+  title: string;
+  message: string;
+}
+
 export default function AppShell({ role }: AppShellProps) {
   const navigate = useNavigate();
-  const { notifications } = useNotifications();
+  const { notifications, markAsRead } = useNotifications();
   const [incomingCall, setIncomingCall] = useState<CallInfo | null>(null);
+  const [toasts, setToasts] = useState<ToastInfo[]>([]);
   const handledNotifKey = useRef<string | null>(null);
+  const handledToastKeys = useRef<Set<string>>(new Set());
+  const initialLoadRef = useRef(true);
 
   // Listen for INCOMING_CALL notifications (student side)
   useEffect(() => {
@@ -50,11 +59,56 @@ export default function AppShell({ role }: AppShellProps) {
           callerName: String(data.callerName),
           courseName: latest.message,
         });
+        // Mark as read so the modal doesn't reappear on refresh
+        if (latest.id) markAsRead(latest.id);
       } catch {
         // skip malformed notification — don't mark as handled
       }
     }
-  }, [notifications, role]);
+  }, [notifications, role, markAsRead]);
+
+  // Show toast notifications only for NEW real-time arrivals (not on initial load).
+  useEffect(() => {
+    // On the first render cycle after mount, mark all existing notification IDs
+    // as "already handled" so they don't trigger toasts on page load / SSE reconnect.
+    if (initialLoadRef.current) {
+      notifications.forEach((n) => {
+        const key = n.id ?? `${n.createdAt ?? ''}_${n.type}`;
+        handledToastKeys.current.add(key);
+      });
+      if (notifications.length > 0) {
+        initialLoadRef.current = false;
+      }
+      return;
+    }
+
+    const latest = notifications[0];
+    if (!latest || latest.isRead) return;
+    if (latest.type === 'INCOMING_CALL' || latest.type === 'UNREAD_COUNT') return;
+
+    const key = latest.id ?? `${latest.createdAt ?? ''}_${latest.type}`;
+    if (handledToastKeys.current.has(key)) return;
+    handledToastKeys.current.add(key);
+
+    const toast: ToastInfo = {
+      id: key,
+      title: latest.title,
+      message: latest.message,
+    };
+    setToasts((prev) => [toast, ...prev]);
+
+    // Auto-dismiss after 6 seconds
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== key));
+    }, 6000);
+  }, [notifications]);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+    if (/^\d+$/.test(id)) {
+      markAsRead(id);
+    }
+  }, [markAsRead]);
 
   const handleAccept = useCallback(() => {
     if (!incomingCall) return;
@@ -75,7 +129,7 @@ export default function AppShell({ role }: AppShellProps) {
       <Sidebar role={role} />
       <main className="flex-1 overflow-y-auto">
         {/* Mobile header bar */}
-        <div className="sticky top-0 z-30 flex items-center gap-3 px-4 py-2 bg-white/80 backdrop-blur border-b border-slate-100 lg:hidden">
+        <div className="sticky top-0 z-40 flex items-center gap-3 px-4 py-2 bg-white/80 backdrop-blur border-b border-slate-100 lg:hidden">
           <button onClick={openMobileSidebar} className="p-1.5 rounded-lg hover:bg-slate-100">
             <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -98,8 +152,42 @@ export default function AppShell({ role }: AppShellProps) {
             onReject={handleReject}
           />
           <StudentChatbot />
+
         </>
       )}
+
+      <AnimatePresence>
+        {toasts.map((toast, i) => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, y: -30, x: 20 }}
+            animate={{ opacity: 1, y: 0, x: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed z-[100] right-6"
+            style={{ top: `${24 + i * 88}px` }}
+          >
+            <div className="flex items-start gap-3 bg-white border border-indigo-200 shadow-lg rounded-xl px-4 py-3 w-80">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-slate-800">{toast.title}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{toast.message}</p>
+              </div>
+              <button
+                onClick={() => dismissToast(toast.id)}
+                className="text-slate-400 hover:text-slate-600 flex-shrink-0"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }
@@ -107,6 +195,8 @@ export default function AppShell({ role }: AppShellProps) {
 /* ── Dashboard-style inline chatbot ──────────────── */
 
 function StudentChatbot() {
+  const location = useLocation();
+  const isGroupChat = /\/study-groups\/\d+\/chat/.test(location.pathname);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState<{ role: 'ai' | 'user'; text: string }[]>([
@@ -145,6 +235,8 @@ function StudentChatbot() {
       setSending(false);
     }
   };
+
+  if (isGroupChat) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50">

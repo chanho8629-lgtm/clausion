@@ -8,6 +8,7 @@ import {
   LocalTrackPublication,
 } from 'livekit-client';
 import type { RoomOptions } from 'livekit-client';
+import { api } from '../api/client';
 
 interface UseLiveKitOptions {
   consultationId: number;
@@ -51,6 +52,9 @@ export function useLiveKit({
   const audioElementsRef = useRef<HTMLElement[]>([]);
   const isConnectedRef = useRef(false);
   const isConnectingRef = useRef(false);
+  // Ensures disconnect() is only executed once per session — both handleEndCall
+  // and the unmount cleanup call it, we must not hit /end-video twice.
+  const isDisconnectingRef = useRef(false);
 
   const cleanupAudioElements = useCallback(() => {
     audioElementsRef.current.forEach((el) => {
@@ -82,30 +86,18 @@ export function useLiveKit({
   );
 
   const connect = useCallback(
-    async (preToken?: string, preRoomName?: string) => {
+    async (preToken?: string, _preRoomName?: string) => {
       if (isConnectedRef.current || isConnectingRef.current) return;
 
       isConnectingRef.current = true;
+      isDisconnectingRef.current = false;
       setIsConnecting(true);
       setError(null);
 
       try {
-        const BASE_URL = import.meta.env.VITE_API_URL ?? '';
-        const jwt = localStorage.getItem('token');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (jwt) headers['Authorization'] = `Bearer ${jwt}`;
-
         let livekitToken = preToken;
         if (!livekitToken) {
-          const res = await fetch(`${BASE_URL}/api/livekit/token`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ consultationId, role, roomName: preRoomName }),
-          });
-          if (!res.ok) throw new Error('토큰 발급 실패');
-          const data = await res.json();
+          const data = await api.post<{ token: string }>('/api/livekit/token', { consultationId, role });
           livekitToken = data.token;
         }
 
@@ -223,6 +215,10 @@ export function useLiveKit({
   );
 
   const disconnect = useCallback(async () => {
+    // Idempotent: a second call (e.g., unmount cleanup after a manual end-call) is a no-op.
+    if (isDisconnectingRef.current) return;
+    isDisconnectingRef.current = true;
+
     // Call end-video API to update server state
     try {
       const BASE_URL = import.meta.env.VITE_API_URL ?? '';

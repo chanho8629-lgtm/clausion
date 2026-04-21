@@ -26,6 +26,7 @@ public class CourseEnrollment {
     private LocalDateTime enrolledAt;
 
     @Column(length = 20)
+    @Builder.Default
     private String status = "ACTIVE";
 
     @PrePersist

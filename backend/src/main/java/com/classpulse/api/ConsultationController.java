@@ -13,6 +13,8 @@ import com.classpulse.domain.course.Course;
 import com.classpulse.domain.course.CourseRepository;
 import com.classpulse.domain.user.User;
 import com.classpulse.domain.user.UserRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +42,7 @@ public class ConsultationController {
     private final NotificationService notificationService;
     private final CourseRepository courseRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
 
     // --- DTOs ---
 
@@ -58,7 +62,8 @@ public class ConsultationController {
             List<Map<String, Object>> actionPlanJson,
             Map<String, Object> briefingJson,
             String videoRoomName,
-            LocalDateTime createdAt, LocalDateTime completedAt
+            LocalDateTime createdAt, LocalDateTime completedAt,
+            String rejectionReason
     ) {
         public static ConsultationResponse from(Consultation c) {
             return new ConsultationResponse(
@@ -70,12 +75,15 @@ public class ConsultationController {
                     c.getNotes(), c.getSummaryText(), c.getCauseAnalysis(),
                     c.getActionPlanJson(), c.getBriefingJson(),
                     c.getVideoRoomName(),
-                    c.getCreatedAt(), c.getCompletedAt()
+                    c.getCreatedAt(), c.getCompletedAt(),
+                    c.getRejectionReason()
             );
         }
     }
 
     public record UpdateNotesRequest(String notes) {}
+
+    public record RejectRequest(String reason) {}
 
     public record JobIdResponse(Long jobId) {}
 
@@ -83,6 +91,11 @@ public class ConsultationController {
 
     @PostMapping
     public ResponseEntity<ConsultationResponse> create(@RequestBody CreateConsultationRequest request) {
+        // 호출자가 student 또는 instructor 본인이어야 함
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (!userId.equals(request.studentId()) && !userId.equals(request.instructorId())) {
+            throw new SecurityException("상담 생성 권한이 없습니다.");
+        }
         Consultation consultation = consultationService.createConsultation(
                 request.studentId(), request.instructorId(),
                 request.courseId(), request.scheduledAt()
@@ -119,8 +132,11 @@ public class ConsultationController {
     @Transactional
     public ResponseEntity<?> requestConsultation(@RequestBody Map<String, Object> body) {
         Long studentId = SecurityUtil.getCurrentUserId();
+        if (body.get("courseId") == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "courseId는 필수입니다."));
+        }
         Long courseId = Long.valueOf(body.get("courseId").toString());
-        String message = body.containsKey("message") ? body.get("message").toString() : "";
+        String message = readFirstString(body, "reason", "message");
 
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new IllegalArgumentException("과정을 찾을 수 없습니다"));
@@ -153,6 +169,77 @@ public class ConsultationController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ConsultationResponse.from(consultation));
     }
 
+    @PutMapping("/{id}/accept")
+    @Transactional
+    public ResponseEntity<ConsultationResponse> accept(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
+
+        if (!"REQUESTED".equals(consultation.getStatus())) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        consultation.setStatus("SCHEDULED");
+        consultation = consultationRepository.save(consultation);
+
+        notificationService.createNotification(
+                consultation.getStudent().getId(),
+                "CONSULTATION_ACCEPTED",
+                "상담 요청이 수락되었습니다",
+                consultation.getCourse().getTitle() + " 과목 상담이 예정되었습니다.",
+                Map.of("consultationId", consultation.getId())
+        );
+
+        consultationAiService.generateBriefing(consultation.getId());
+
+        return ResponseEntity.ok(ConsultationResponse.from(consultation));
+    }
+
+    @PutMapping("/{id}/reject")
+    @Transactional
+    public ResponseEntity<ConsultationResponse> reject(
+            @PathVariable Long id,
+            @RequestBody(required = false) RejectRequest body) {
+        Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
+
+        String currentStatus = consultation.getStatus();
+        if (!"REQUESTED".equals(currentStatus) && !"SCHEDULED".equals(currentStatus)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        consultation.setStatus("REJECTED");
+        if (body != null && body.reason() != null && !body.reason().isBlank()) {
+            consultation.setRejectionReason(body.reason().trim());
+        }
+        consultation = consultationRepository.save(consultation);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        boolean isStudent = consultation.getStudent().getId().equals(currentUserId);
+
+        if (isStudent) {
+            notificationService.createNotification(
+                    consultation.getInstructor().getId(),
+                    "CONSULTATION_REJECTED",
+                    "상담이 거절되었습니다",
+                    consultation.getStudent().getName() + " 학생이 상담을 거절했습니다.",
+                    Map.of("consultationId", consultation.getId())
+            );
+        } else {
+            notificationService.createNotification(
+                    consultation.getStudent().getId(),
+                    "CONSULTATION_REJECTED",
+                    "상담 요청이 거절되었습니다",
+                    consultation.getCourse().getTitle() + " 과목 상담 요청이 거절되었습니다.",
+                    Map.of("consultationId", consultation.getId())
+            );
+        }
+
+        return ResponseEntity.ok(ConsultationResponse.from(consultation));
+    }
+
     @GetMapping
     public ResponseEntity<List<ConsultationResponse>> list(
             @RequestParam String role,
@@ -181,6 +268,7 @@ public class ConsultationController {
             @PathVariable Long id,
             @RequestBody Map<String, String> body) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         if (!"REQUESTED".equals(consultation.getStatus())) {
             return ResponseEntity.badRequest().build();
         }
@@ -210,12 +298,14 @@ public class ConsultationController {
     @GetMapping("/{id}")
     public ResponseEntity<ConsultationResponse> getById(@PathVariable Long id) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         return ResponseEntity.ok(ConsultationResponse.from(consultation));
     }
 
     @GetMapping("/{id}/briefing")
     public ResponseEntity<Map<String, Object>> getBriefing(@PathVariable Long id) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         Map<String, Object> briefing = consultation.getBriefingJson();
         if (briefing == null) {
             briefing = Map.of("message", "Briefing not yet generated");
@@ -224,7 +314,22 @@ public class ConsultationController {
     }
 
     @PostMapping("/{id}/summary")
-    public ResponseEntity<JobIdResponse> triggerSummary(@PathVariable Long id) {
+    @Transactional
+    public ResponseEntity<?> triggerSummary(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body
+    ) {
+        verifyConsultationAccess(consultationService.getById(id));
+        if (body != null && hasManualSummaryPayload(body)) {
+            Consultation updated = consultationService.updateSummary(
+                    id,
+                    readOptionalString(body, "summaryText"),
+                    readOptionalString(body, "causeAnalysis"),
+                    parseActionPlan(body.get("actionPlanJson"))
+            );
+            return ResponseEntity.ok(ConsultationResponse.from(updated));
+        }
+
         AsyncJob job = AsyncJob.builder()
                 .jobType("CONSULTATION_SUMMARY")
                 .status("PENDING")
@@ -243,9 +348,67 @@ public class ConsultationController {
             @RequestBody UpdateNotesRequest request
     ) {
         Consultation consultation = consultationService.getById(id);
+        verifyConsultationAccess(consultation);
         consultation.setNotes(request.notes());
         consultation = consultationRepository.save(consultation);
         return ResponseEntity.ok(ConsultationResponse.from(consultation));
+    }
+
+    private void verifyConsultationAccess(Consultation c) {
+        Long userId = SecurityUtil.getCurrentUserId();
+        if (!c.getStudent().getId().equals(userId) && !c.getInstructor().getId().equals(userId)) {
+            throw new SecurityException("상담 접근 권한이 없습니다.");
+        }
+    }
+
+    private boolean hasManualSummaryPayload(Map<String, Object> body) {
+        return body.containsKey("summaryText")
+                || body.containsKey("causeAnalysis")
+                || body.containsKey("actionPlanJson");
+    }
+
+    private String readFirstString(Map<String, Object> body, String... keys) {
+        for (String key : keys) {
+            String value = readOptionalString(body, key);
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private String readOptionalString(Map<String, Object> body, String key) {
+        Object value = body.get(key);
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString().trim();
+        return text.isEmpty() ? null : text;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> parseActionPlan(Object raw) {
+        if (raw == null) {
+            return Collections.emptyList();
+        }
+        if (raw instanceof List<?> list) {
+            return list.stream()
+                    .filter(Map.class::isInstance)
+                    .map(item -> (Map<String, Object>) item)
+                    .toList();
+        }
+        if (raw instanceof String text) {
+            String trimmed = text.trim();
+            if (trimmed.isEmpty()) {
+                return Collections.emptyList();
+            }
+            try {
+                return objectMapper.readValue(trimmed, new TypeReference<List<Map<String, Object>>>() {});
+            } catch (Exception e) {
+                throw new IllegalArgumentException("actionPlanJson 형식이 올바르지 않습니다", e);
+            }
+        }
+        return objectMapper.convertValue(raw, new TypeReference<List<Map<String, Object>>>() {});
     }
 
     // --- Async Service ---

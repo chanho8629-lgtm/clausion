@@ -50,14 +50,14 @@ export default function OperatorDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900">교육 운영 대시보드</h1>
-        <p className="text-sm text-slate-500 mt-1">교강사 횡단 관리 - 과정 간 비교와 운영 의사결정</p>
+        <p className="text-sm text-slate-500 mt-1">강사 횡단 관리 - 과정 간 비교와 운영 의사결정</p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <StatCard label="진행중 과정" value={summary?.activeCourses ?? '-'} />
         <StatCard label="총 수강생" value={summary?.totalStudents ?? '-'} />
-        <StatCard label="교강사" value={summary?.totalInstructors ?? '-'} />
+        <StatCard label="강사" value={summary?.totalInstructors ?? '-'} />
         <StatCard label="이탈 위험군" value={summary?.atRiskStudents ?? '-'} accent="text-rose-600" />
         <StatCard
           label="오늘 출석률"
@@ -107,16 +107,17 @@ export default function OperatorDashboard() {
 
         {/* Instructor Workload Summary */}
         <GlassCard className="p-5">
-          <h2 className="text-sm font-bold text-slate-900 mb-4">교강사 업무 부하</h2>
+          <h2 className="text-sm font-bold text-slate-900 mb-4">강사 업무 부하</h2>
           {workload && workload.length > 0 ? (
             <div className="space-y-3">
               {workload.map((inst) => {
-                const pct = Math.min(inst.workloadScore, 100);
+                const cap = inst.totalCapacity ?? 1;
+                const fillPct = cap > 0 ? Math.min(Math.round((inst.studentCount / cap) * 100), 100) : 0;
                 const barColor =
-                  pct >= 90 ? 'bg-rose-500'
-                  : pct >= 70 ? 'bg-orange-400'
-                  : pct >= 50 ? 'bg-amber-400'
-                  : pct >= 30 ? 'bg-sky-400'
+                  fillPct >= 90 ? 'bg-rose-500'
+                  : fillPct >= 70 ? 'bg-orange-400'
+                  : fillPct >= 50 ? 'bg-amber-400'
+                  : fillPct >= 30 ? 'bg-sky-400'
                   : 'bg-emerald-400';
                 return (
                   <div key={inst.id} className="flex items-center gap-3">
@@ -124,14 +125,14 @@ export default function OperatorDashboard() {
                     <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all ${barColor}`}
-                        style={{ width: `${pct}%` }}
+                        style={{ width: `${fillPct}%` }}
                       />
                     </div>
-                    <span className="text-xs text-slate-500 w-20 text-right font-medium">
-                      {inst.studentCount}/{inst.courseCount * 30}명
+                    <span className="text-xs text-slate-500 w-24 text-right font-medium">
+                      {inst.studentCount}/{cap}명
                     </span>
-                    <span className={`text-xs font-bold w-10 text-right ${pct >= 90 ? 'text-rose-600' : pct >= 70 ? 'text-orange-600' : 'text-slate-500'}`}>
-                      {pct.toFixed(0)}%
+                    <span className={`text-xs font-bold w-10 text-right ${fillPct >= 90 ? 'text-rose-600' : fillPct >= 70 ? 'text-orange-600' : 'text-slate-500'}`}>
+                      {fillPct}%
                     </span>
                     {inst.isOverloaded && (
                       <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 text-[10px] font-bold">과부하</span>
@@ -141,7 +142,7 @@ export default function OperatorDashboard() {
               })}
             </div>
           ) : (
-            <p className="text-sm text-slate-400">교강사 데이터가 없습니다.</p>
+            <p className="text-sm text-slate-400">강사 데이터가 없습니다.</p>
           )}
         </GlassCard>
       </div>
@@ -149,7 +150,7 @@ export default function OperatorDashboard() {
       {/* Risk Alerts */}
       <GlassCard className="p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-slate-900">이탈 위험 알림 (교강사에게 지시 필요)</h2>
+          <h2 className="text-sm font-bold text-slate-900">이탈 위험 알림 (강사에게 지시 필요)</h2>
           <button
             onClick={() => navigate('/operator/intervention')}
             className="text-xs text-indigo-600 font-medium hover:text-indigo-700 transition-colors"
@@ -169,13 +170,13 @@ export default function OperatorDashboard() {
                   </div>
                 </div>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                  alert.overallRisk >= 0.8 ? 'bg-rose-100 text-rose-700'
-                  : alert.overallRisk >= 0.6 ? 'bg-orange-100 text-orange-700'
-                  : alert.overallRisk >= 0.4 ? 'bg-amber-100 text-amber-700'
-                  : alert.overallRisk >= 0.2 ? 'bg-sky-100 text-sky-700'
+                  alert.overallRisk >= 80 ? 'bg-rose-100 text-rose-700'
+                  : alert.overallRisk >= 60 ? 'bg-orange-100 text-orange-700'
+                  : alert.overallRisk >= 40 ? 'bg-amber-100 text-amber-700'
+                  : alert.overallRisk >= 20 ? 'bg-sky-100 text-sky-700'
                   : 'bg-emerald-100 text-emerald-700'
                 }`}>
-                  {(alert.overallRisk * 100).toFixed(0)}%
+                  {Math.round(alert.overallRisk)}%
                 </span>
               </div>
             ))}

@@ -5,6 +5,7 @@ import com.classpulse.domain.audit.OperatorAuditLog;
 import com.classpulse.domain.audit.AuditLogRepository;
 import com.classpulse.domain.course.Course;
 import com.classpulse.domain.course.CourseRepository;
+import com.classpulse.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
+@org.springframework.security.access.prepost.PreAuthorize("hasRole('OPERATOR')")
 @RequestMapping("/api/operator/courses")
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -23,6 +25,7 @@ public class OperatorCourseController {
 
     private final CourseRepository courseRepository;
     private final AuditLogRepository auditLogRepository;
+    private final NotificationService notificationService;
 
     @GetMapping
     public ResponseEntity<List<Map<String, Object>>> getCourses() {
@@ -70,6 +73,7 @@ public class OperatorCourseController {
         c.setApprovalStatus("APPROVED");
         c.setApprovalNote(body != null ? body.get("note") : null);
         courseRepository.save(c);
+        notifyInstructor(c, "COURSE_APPROVED", "과정 승인", c.getTitle() + " 과정이 승인되었습니다.");
 
         logAudit("COURSE_APPROVE", "COURSE", id, Map.of("note", body != null && body.get("note") != null ? body.get("note") : ""));
         return ResponseEntity.noContent().build();
@@ -77,15 +81,22 @@ public class OperatorCourseController {
 
     @Transactional
     @PutMapping("/{id}/reject")
-    public ResponseEntity<Void> rejectCourse(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<Void> rejectCourse(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
         Course c = courseRepository.findById(id).orElse(null);
         if (c == null) return ResponseEntity.notFound().build();
 
+        String note = body != null ? body.get("note") : null;
         c.setApprovalStatus("REJECTED");
-        c.setApprovalNote(body.get("note"));
+        c.setApprovalNote(note);
         courseRepository.save(c);
+        notifyInstructor(
+                c,
+                "COURSE_REJECTED",
+                "과정 반려",
+                c.getTitle() + " 과정이 반려되었습니다." + (note != null && !note.isBlank() ? " 사유: " + note : "")
+        );
 
-        logAudit("COURSE_REJECT", "COURSE", id, Map.of("note", body.getOrDefault("note", "")));
+        logAudit("COURSE_REJECT", "COURSE", id, Map.of("note", note != null ? note : ""));
         return ResponseEntity.noContent().build();
     }
 
@@ -119,5 +130,23 @@ public class OperatorCourseController {
         } catch (Exception e) {
             log.error("Failed to write audit log: {} {} {}", actionType, targetType, targetId, e);
         }
+    }
+
+    private void notifyInstructor(Course course, String type, String title, String message) {
+        if (course.getCreatedBy() == null) {
+            return;
+        }
+
+        notificationService.createNotification(
+                course.getCreatedBy().getId(),
+                type,
+                title,
+                message,
+                Map.of(
+                        "courseId", course.getId(),
+                        "approvalStatus", course.getApprovalStatus(),
+                        "approvalNote", course.getApprovalNote() != null ? course.getApprovalNote() : ""
+                )
+        );
     }
 }

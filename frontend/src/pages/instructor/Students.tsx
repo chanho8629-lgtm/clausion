@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { instructorApi, type StudentTwinEntry } from '../../api/instructor';
 import { useCourseId } from '../../hooks/useCourseId';
 import StudentTwinCard from '../../components/instructor/StudentTwinCard';
+import Skeleton from '../../components/common/Skeleton';
 
 type SortKey = 'name' | 'risk' | 'updated';
 type FilterRisk = 'all' | 'danger' | 'caution' | 'safe';
@@ -14,6 +15,8 @@ export default function Students() {
   const [sortBy, setSortBy] = useState<SortKey>('risk');
   const [filterRisk, setFilterRisk] = useState<FilterRisk>('all');
   const [search, setSearch] = useState('');
+  // Lowers filter work off the critical keystroke path on large rosters.
+  const deferredSearch = useDeferredValue(search).trim().toLowerCase();
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['instructor', 'students', courseId],
@@ -31,7 +34,7 @@ export default function Students() {
   const filtered = students
     .filter((s: StudentTwinEntry) => {
       if (filterRisk !== 'all' && riskLevel(s.overallRiskScore) !== filterRisk) return false;
-      if (search && !s.studentName.includes(search)) return false;
+      if (deferredSearch && !s.studentName.toLowerCase().includes(deferredSearch)) return false;
       return true;
     })
     .sort((a: StudentTwinEntry, b: StudentTwinEntry) => {
@@ -52,7 +55,7 @@ export default function Students() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
+      <header className="sticky top-[41px] lg:top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
           <h1 className="text-base font-bold text-slate-800">학생 관리</h1>
           <p className="text-xs text-slate-500">총 {students.length}명 · 위험 {counts.danger}명 · 주의 {counts.caution}명</p>
@@ -112,8 +115,8 @@ export default function Students() {
         </div>
 
         {isLoading && (
-          <div className="text-center py-12 text-sm text-slate-400">
-            학생 데이터를 불러오는 중...
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} variant="card" />)}
           </div>
         )}
 

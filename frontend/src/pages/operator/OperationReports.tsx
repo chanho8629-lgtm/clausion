@@ -2,11 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { operatorApi } from '../../api/operator';
 import GlassCard from '../../components/common/GlassCard';
+import Skeleton from '../../components/common/Skeleton';
 
 const summaryKeyLabels: Record<string, string> = {
   totalStudents: '총 수강생',
+  totalStudentsAnalyzed: '분석 대상 수강생',
   activeStudents: '활성 수강생',
   atRiskStudents: '위험 수강생',
+  decliningStudents: '하락 추세 수강생',
   avgMastery: '평균 숙련도',
   avgMotivation: '평균 동기',
   avgAttendance: '평균 출석률',
@@ -15,7 +18,7 @@ const summaryKeyLabels: Record<string, string> = {
   interventionCount: '개입 횟수',
   completionRate: '수료율',
   activeCourses: '진행 과정',
-  totalInstructors: '교강사 수',
+  totalInstructors: '강사 수',
   avgOverallRisk: '평균 위험도',
   newEnrollments: '신규 등록',
 };
@@ -46,15 +49,23 @@ export default function OperationReports() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold text-slate-900">AI 운영 리포트</h1>
-        <p className="text-sm text-slate-500 mt-1">교강사 횡단 분석 - 교강사가 볼 수 없는 비교 인사이트</p>
+        <p className="text-sm text-slate-500 mt-1">강사 횡단 분석 - 강사가 볼 수 없는 비교 인사이트</p>
       </div>
 
       {/* Instructor Effectiveness Comparison Chart */}
       <GlassCard className="p-5">
-        <h2 className="text-sm font-bold text-slate-900 mb-4">교강사 효과성 비교 (학생 Twin 평균)</h2>
-        {effectiveness && effectiveness.length > 0 ? (
+        <h2 className="text-sm font-bold text-slate-900 mb-4">강사 효과성 비교 (학생 트윈 평균)</h2>
+        {(() => {
+          // Drop rows where numeric fields are null — recharts silently fails to render
+          // a stable domain when mixed with nulls.
+          const cleanData = (effectiveness ?? []).map((e) => ({
+            ...e,
+            avgMastery: e.avgMastery ?? 0,
+            avgMotivation: e.avgMotivation ?? 0,
+          }));
+          return cleanData.length > 0 ? (
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={effectiveness} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <BarChart data={cleanData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} domain={[0, 100]} />
@@ -65,8 +76,9 @@ export default function OperationReports() {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <p className="text-sm text-slate-400">교강사 데이터가 없습니다.</p>
-        )}
+          <p className="text-sm text-slate-400">강사 데이터가 없습니다.</p>
+        );
+        })()}
         {effectiveness && effectiveness.length > 1 && (() => {
           const sorted = [...effectiveness].sort((a, b) => a.avgMastery - b.avgMastery);
           const lowest = sorted[0];
@@ -77,7 +89,7 @@ export default function OperationReports() {
                 <p className="text-xs text-amber-800">
                   <span className="font-bold">AI 인사이트:</span> {lowest.name}의 학생 숙련도 평균({lowest.avgMastery.toFixed(0)})이
                   {highest.name}({highest.avgMastery.toFixed(0)})에 비해 {(highest.avgMastery - lowest.avgMastery).toFixed(0)}점 낮습니다.
-                  과정 점검 또는 교강사 지원을 권장합니다.
+                  과정 점검 또는 강사 지원을 권장합니다.
                 </p>
               </div>
             );
@@ -87,7 +99,10 @@ export default function OperationReports() {
       </GlassCard>
 
       {isLoading ? (
-        <p className="text-sm text-slate-400">리포트 로딩 중...</p>
+        <div className="space-y-4">
+          <Skeleton variant="card" />
+          <Skeleton variant="chart" />
+        </div>
       ) : report ? (
         <>
           <GlassCard className="p-5">

@@ -1,10 +1,14 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { operatorApi } from '../../api/operator';
 import GlassCard from '../../components/common/GlassCard';
+import Skeleton from '../../components/common/Skeleton';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export default function InterventionCenter() {
   const queryClient = useQueryClient();
+  const { confirm, confirmNode } = useConfirm();
   const [messageText, setMessageText] = useState<Record<string, string>>({});
 
   const { data: center, isLoading } = useQuery({
@@ -20,13 +24,29 @@ export default function InterventionCenter() {
   const directiveMutation = useMutation({
     mutationFn: operatorApi.sendInterventionDirective,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['operator'] });
+      // Narrow invalidation: a directive only affects the at-risk grouping and the
+      // directive history. Avoid invalidating the whole `['operator']` prefix,
+      // which would force every operator page to refetch.
+      queryClient.invalidateQueries({ queryKey: ['operator', 'intervention-center'] });
+      queryClient.invalidateQueries({ queryKey: ['operator', 'intervention-directives'] });
       setMessageText({});
+      toast.success('강사에게 지시를 전송했습니다.');
     },
   });
 
-  const handleSendDirective = (instructorId: string, studentIds: string[], _courseId: string) => {
+  const handleSendDirective = async (
+    instructorId: string,
+    studentIds: string[],
+    _courseId: string,
+    instructorName: string,
+  ) => {
     const message = messageText[instructorId] || '해당 학생들에 대한 주의 및 개입을 요청합니다.';
+    const ok = await confirm({
+      title: '개입 지시 전송',
+      message: `${instructorName} 강사에게 ${studentIds.length}명의 학생에 대한 개입 지시를 전송합니다.\n강사의 알림에 남고, 감사 로그에도 기록됩니다.`,
+      confirmLabel: '전송',
+    });
+    if (!ok) return;
     directiveMutation.mutate({
       instructorId,
       studentIds,
@@ -38,14 +58,14 @@ export default function InterventionCenter() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-extrabold text-slate-900">교강사 개입 지시 센터</h1>
+        <h1 className="text-2xl font-extrabold text-slate-900">강사 개입 지시 센터</h1>
         <p className="text-sm text-slate-500 mt-1">
-          AI가 감지한 위험 학생을 교강사별로 그룹핑 - 교강사에게 직접 주의 지시를 보냅니다.
+          AI가 감지한 위험 학생을 강사별로 그룹핑 - 강사에게 직접 주의 지시를 보냅니다.
         </p>
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-slate-400">분석 중...</p>
+        <Skeleton variant="list" rows={3} />
       ) : center && center.length > 0 ? (
         <div className="space-y-4">
           {center.map((group) => (
@@ -69,13 +89,13 @@ export default function InterventionCenter() {
                       <div key={s.studentId} className="flex items-center gap-3">
                         <span className="text-sm text-slate-700">{s.studentName}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          s.overallRisk >= 0.8 ? 'bg-rose-100 text-rose-700'
-                          : s.overallRisk >= 0.6 ? 'bg-orange-100 text-orange-700'
-                          : s.overallRisk >= 0.4 ? 'bg-amber-100 text-amber-700'
-                          : s.overallRisk >= 0.2 ? 'bg-sky-100 text-sky-700'
+                          s.overallRisk >= 80 ? 'bg-rose-100 text-rose-700'
+                          : s.overallRisk >= 60 ? 'bg-orange-100 text-orange-700'
+                          : s.overallRisk >= 40 ? 'bg-amber-100 text-amber-700'
+                          : s.overallRisk >= 20 ? 'bg-sky-100 text-sky-700'
                           : 'bg-emerald-100 text-emerald-700'
                         }`}>
-                          {(s.overallRisk * 100).toFixed(0)}%
+                          {Math.round(s.overallRisk)}%
                         </span>
                         {s.trend === 'DECLINING' && (
                           <span className="text-rose-500 text-xs font-bold">&#9660; 하락</span>
@@ -95,19 +115,20 @@ export default function InterventionCenter() {
                     <input
                       value={messageText[group.instructorId] || ''}
                       onChange={(e) => setMessageText(prev => ({ ...prev, [group.instructorId]: e.target.value }))}
-                      placeholder="교강사에게 전달할 메시지 (선택)"
+                      placeholder="강사에게 전달할 메시지 (선택)"
                       className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-sm"
                     />
                     <button
                       onClick={() => handleSendDirective(
                         group.instructorId,
                         group.atRiskStudents.map((s: { studentId: string }) => s.studentId),
-                        group.courseId
+                        group.courseId,
+                        group.instructorName,
                       )}
                       disabled={directiveMutation.isPending}
                       className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors whitespace-nowrap"
                     >
-                      교강사에게 지시
+                      강사에게 지시
                     </button>
                   </div>
                 </div>
@@ -117,7 +138,7 @@ export default function InterventionCenter() {
         </div>
       ) : (
         <GlassCard className="p-8 text-center">
-          <p className="text-slate-400">현재 교강사에게 전달할 위험 학생이 없습니다.</p>
+          <p className="text-slate-400">현재 강사에게 전달할 위험 학생이 없습니다.</p>
         </GlassCard>
       )}
 
@@ -144,6 +165,7 @@ export default function InterventionCenter() {
           </div>
         </GlassCard>
       )}
+      {confirmNode}
     </div>
   );
 }

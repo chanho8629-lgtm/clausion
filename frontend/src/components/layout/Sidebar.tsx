@@ -34,7 +34,9 @@ const studentNav: NavSection[] = [
   {
     title: '학습',
     items: [
-      { id: 'courses', label: '수강 신청', icon: '📋', path: 'courses' },
+      { id: 'courses', label: '내 과정', icon: '📋', path: 'courses' },
+      { id: 'attendance', label: '출결 관리', icon: '✅', path: 'attendance' },
+      { id: 'practice', label: '문제 풀기', icon: '✏️', path: 'practice' },
       { id: 'review', label: '복습 / 성찰', icon: '📝', path: 'review' },
       { id: 'reflection', label: '학습 성찰', icon: '💭', path: 'reflection' },
     ],
@@ -52,6 +54,12 @@ const studentNav: NavSection[] = [
       { id: 'next-step', label: '다음 단계', icon: '🎯', path: 'next-step' },
     ],
   },
+  {
+    title: '소통',
+    items: [
+      { id: 'announcements', label: '공지사항', icon: '📢', path: 'announcements' },
+    ],
+  },
 ];
 
 const instructorNav: NavSection[] = [
@@ -67,9 +75,21 @@ const instructorNav: NavSection[] = [
     ],
   },
   {
+    title: '출결',
+    items: [
+      { id: 'attendance', label: '출결 관리', icon: '📝', path: 'attendance' },
+    ],
+  },
+  {
     title: '상담',
     items: [
       { id: 'consultations', label: '1:1 상담', icon: '📅', path: 'consultations' },
+    ],
+  },
+  {
+    title: '소통',
+    items: [
+      { id: 'announcements', label: '공지사항', icon: '📢', path: 'announcements' },
     ],
   },
 ];
@@ -80,14 +100,13 @@ const operatorNav: NavSection[] = [
     title: '인원 관리',
     items: [
       { id: 'students', label: '학생 관리', icon: '🎓', path: 'students' },
-      { id: 'at-risk', label: '위험 학생', icon: '⚠️', path: 'students/at-risk' },
       { id: 'instructor-management', label: '강사 관리', icon: '👨‍🏫', path: 'instructor-management' },
     ],
   },
   {
     title: '횡단 분석',
     items: [
-      { id: 'instructors', label: '교강사 분석', icon: '📊', path: 'instructors' },
+      { id: 'instructors', label: '강사 분석', icon: '📊', path: 'instructors' },
       { id: 'intervention', label: '개입 지시', icon: '🚨', path: 'intervention' },
     ],
   },

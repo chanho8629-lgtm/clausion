@@ -64,8 +64,18 @@ public class Consultation {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
+    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    // Optimistic lock: prevents two concurrent status transitions (e.g. schedule + reject)
+    // from silently overwriting one another.
+    @Version
+    @Column(name = "lock_version")
+    private Long lockVersion;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
+        if (lockVersion == null) lockVersion = 0L;
     }
 }

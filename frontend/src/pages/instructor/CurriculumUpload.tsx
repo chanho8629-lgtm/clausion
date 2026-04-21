@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { coursesApi } from '../../api/courses';
 import { pollJob } from '../../api/jobs';
 import type { JobStatus } from '../../api/jobs';
@@ -58,9 +58,15 @@ const diffLabel = (d: string) => {
 
 export default function CurriculumUpload() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: courses, isLoading: coursesLoading } = useCourses();
-  const courseId = courses?.[0]?.id?.toString();
+
+  // 선택된 과정 (URL 파라미터로 초기값 설정)
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(
+    searchParams.get('courseId'),
+  );
+  const courseId = selectedCourseId ?? undefined;
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [courseName, setCourseName] = useState('');
@@ -78,6 +84,26 @@ export default function CurriculumUpload() {
   const [showAddSkill, setShowAddSkill] = useState(false);
   const [addForm, setAddForm] = useState({ name: '', description: '', difficulty: 'MEDIUM' });
   const [deleteConfirm, setDeleteConfirm] = useState<CurriculumSkill | null>(null);
+
+  // 과정 목록 로드 시 자동 선택 (선택된 과정이 없을 때만)
+  useEffect(() => {
+    if (!courses || courses.length === 0) return;
+    if (selectedCourseId && courses.some((c) => String(c.id) === selectedCourseId)) return;
+    setSelectedCourseId(String(courses[0].id));
+  }, [courses, selectedCourseId]);
+
+  // 과정 변경 핸들러
+  const handleCourseChange = (newId: string) => {
+    setSelectedCourseId(newId);
+    setSearchParams({ courseId: newId });
+    setPhase('loading');
+    setAnalysisResult(null);
+    setFiles([]);
+    setTarget('');
+    setAdditionalPrompt('');
+    setCourseName('');
+    setCourseNameInitialized(false);
+  };
 
   // 스킬 CRUD mutations
   const updateSkillMut = useMutation({
@@ -108,11 +134,10 @@ export default function CurriculumUpload() {
   });
 
   // 기존 스킬 로드 — 있으면 view, 없으면 input
-  const { data: existingSkills } = useQuery({
+  const { data: existingSkills, isError: skillsError } = useQuery({
     queryKey: ['courses', courseId, 'skills'],
     queryFn: () => coursesApi.getSkills(courseId!),
     enabled: !!courseId,
-    staleTime: 60_000,
   });
 
   // 스킬 데이터가 로드되면 phase 결정 (useEffect로 이동하여 렌더 중 setState 방지)
@@ -120,6 +145,7 @@ export default function CurriculumUpload() {
     if (phase !== 'loading') return;
     if (coursesLoading) return;
     if (!courseId) return; // courseId 없으면 아래 early return에서 처리
+    if (skillsError) { setPhase('input'); return; }
     if (existingSkills === undefined) return;
 
     if (existingSkills.length > 0) {
@@ -141,15 +167,18 @@ export default function CurriculumUpload() {
     } else {
       setPhase('input');
     }
-  }, [phase, coursesLoading, courseId, existingSkills]);
+  }, [phase, coursesLoading, courseId, existingSkills, skillsError]);
 
-  // 과정명 자동 채우기
+  // 과정명 자동 채우기 (선택된 과정 기준)
   useEffect(() => {
-    if (!courseNameInitialized && courses && courses.length > 0) {
-      setCourseName(courses[0].title);
-      setCourseNameInitialized(true);
+    if (!courseNameInitialized && courses && courseId) {
+      const course = courses.find((c) => String(c.id) === courseId);
+      if (course) {
+        setCourseName(course.title);
+        setCourseNameInitialized(true);
+      }
     }
-  }, [courses, courseNameInitialized]);
+  }, [courses, courseId, courseNameInitialized]);
 
   const analyzeMutation = useMutation({
     mutationFn: async () => {
@@ -166,7 +195,7 @@ export default function CurriculumUpload() {
         jobId = res.jobId;
       } else {
         const res = await coursesApi.analyzeCurriculumText(courseId, {
-          courseName: courseName || courses?.[0]?.title || '',
+          courseName: courseName || courses?.find((c) => String(c.id) === courseId)?.title || '',
           target: target || undefined,
           additionalPrompt: additionalPrompt || undefined,
         });
@@ -251,7 +280,7 @@ export default function CurriculumUpload() {
       {data.skills.length > 0 && (
         <div className="bg-white/85 backdrop-blur-[12px] border border-white/60 rounded-2xl shadow-lg p-6">
           <h3 className="text-sm font-semibold text-slate-800 mb-4">추출된 스킬 ({data.skills.length}개)</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.skills.map((skill, i) => (
               <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <div className="flex items-center justify-between mb-1.5">
@@ -373,7 +402,7 @@ export default function CurriculumUpload() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
+      <header className="sticky top-[41px] lg:top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
           <div>
             <h1 className="text-base font-bold text-slate-800">
@@ -385,6 +414,21 @@ export default function CurriculumUpload() {
                 : 'AI가 커리큘럼을 분석하여 스킬 맵과 학습 계획을 생성합니다'}
             </p>
           </div>
+          <div className="flex items-center gap-3">
+            {courses && courses.length > 0 && (
+              <select
+                value={courseId ?? ''}
+                onChange={(e) => handleCourseChange(e.target.value)}
+                disabled={phase === 'analyzing'}
+                className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 max-w-[220px] disabled:opacity-50"
+              >
+                {courses.map((c) => (
+                  <option key={c.id} value={String(c.id)}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
           {phase === 'view' && (
             <button
               onClick={() => setPhase('input')}
@@ -393,6 +437,7 @@ export default function CurriculumUpload() {
               재분석
             </button>
           )}
+          </div>
         </div>
       </header>
 
@@ -421,7 +466,7 @@ export default function CurriculumUpload() {
                   + 스킬 추가
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {existingSkills.map((skill) => (
                   <div key={skill.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 group">
                     <div className="flex items-center justify-between mb-1.5">
@@ -441,16 +486,18 @@ export default function CurriculumUpload() {
                               difficulty: String(skill.difficulty),
                             });
                           }}
-                          className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors opacity-0 group-hover:opacity-100"
+                          aria-label="스킬 수정"
+                          className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 focus-visible:opacity-100 focus-visible:text-indigo-600 transition-colors md:opacity-0 md:group-hover:opacity-100"
                           title="수정"
                         >
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
                           </svg>
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(skill)}
-                          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100"
+                          aria-label="스킬 삭제"
+                          className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 focus-visible:opacity-100 focus-visible:text-rose-600 transition-colors md:opacity-0 md:group-hover:opacity-100"
                           title="삭제"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

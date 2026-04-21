@@ -6,7 +6,7 @@ import { recommendationsApi } from '../../api/recommendations';
 import { useCourseId } from '../../hooks/useCourseId';
 import { useAuthStore } from '../../store/authStore';
 import type { Recommendation } from '../../types';
-import { getRecommendationAction } from '../../utils/recommendations';
+import { getRecommendationAction, normalizeType } from '../../utils/recommendations';
 
 const TYPE_CONFIG: Record<
   string,
@@ -58,18 +58,18 @@ const NextStep: React.FC = () => {
   const { data: recs = [] } = useQuery<Recommendation[]>({
     queryKey: ['recommendations', studentId, courseId],
     queryFn: () => recommendationsApi.getRecommendations(studentId, courseId),
-    enabled: !!studentId,
+    enabled: !!studentId && !!courseId,
   });
 
   const list = recs;
   const filtered =
     filter === 'all'
       ? list
-      : list.filter((r) => r.recommendationType === filter);
+      : list.filter((r) => normalizeType(r.recommendationType) === filter);
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
+      <header className="sticky top-[41px] lg:top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3">
           <h1 className="text-lg sm:text-xl font-bold text-slate-900">다음 단계 추천</h1>
           <p className="text-xs text-slate-500">
@@ -83,7 +83,7 @@ const NextStep: React.FC = () => {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Object.entries(TYPE_CONFIG).map(([key, config]) => {
             const count = list.filter(
-              (r) => r.recommendationType === key,
+              (r) => normalizeType(r.recommendationType) === key,
             ).length;
             return (
               <div
@@ -127,7 +127,7 @@ const NextStep: React.FC = () => {
         <div className="space-y-4">
           {filtered.map((rec, i) => {
             const config =
-              TYPE_CONFIG[rec.recommendationType] ?? TYPE_CONFIG.review;
+              TYPE_CONFIG[normalizeType(rec.recommendationType)] ?? TYPE_CONFIG.review;
             const triggerLabel =
               TRIGGER_LABELS[rec.triggerEvent] ?? rec.triggerEvent;
             const action = getRecommendationAction(rec.recommendationType);
@@ -150,7 +150,7 @@ const NextStep: React.FC = () => {
                     {config.icon}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${config.accentBg}`}
                       >
@@ -169,16 +169,16 @@ const NextStep: React.FC = () => {
                     <h3 className="text-sm font-bold text-slate-800 mb-1">
                       {rec.title}
                     </h3>
-                    <p className="text-xs text-slate-500 leading-relaxed mb-2">
+                    <p className="text-xs text-slate-500 leading-relaxed mb-2 line-clamp-2">
                       {rec.reasonSummary}
                     </p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-emerald-600 font-medium">
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs text-emerald-600 font-medium flex-1 min-w-0 line-clamp-1">
                         예상 효과: {rec.expectedOutcome}
                       </p>
                       <button
                         onClick={() => navigate(action.path)}
-                        className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+                        className="shrink-0 rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
                       >
                         {action.label}
                       </button>

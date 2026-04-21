@@ -82,9 +82,8 @@ export interface StudentTwin {
 
 export interface SkillMasterySnapshot {
   id: string;
-  studentId: string;
-  courseId: string;
   skillId: string;
+  skillName: string;
   understandingScore: number;
   practiceScore: number;
   confidenceScore: number;
@@ -126,12 +125,39 @@ export interface Question {
   courseId: string;
   skillId: string;
   questionType: string;
-  difficulty: number;
+  difficulty: number | string;
   content: string;
   answer: string;
   explanation: string;
   generationReason: string;
   approvalStatus: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
+export interface PracticeQuestion {
+  id: string;
+  courseId: string;
+  skillId: string | null;
+  reviewTaskId: string | null;
+  taskTitle: string | null;
+  reasonSummary: string | null;
+  questionType: string;
+  difficulty: string;
+  content: string;
+  answer: string;
+  explanation: string;
+  generationReason: string;
+  approvalStatus: string;
+  source: 'BANK' | 'AI' | 'FALLBACK' | string;
+}
+
+export interface PracticeEvaluation {
+  score: number;
+  passed: boolean;
+  verdict: string;
+  strengths: string[];
+  improvements: string[];
+  modelAnswer: string | null;
+  coachingTip: string | null;
 }
 
 // ── Consultation ─────────────────────────────────────────────
@@ -149,11 +175,12 @@ export interface Consultation {
   notes?: string;
   summaryText: string;
   causeAnalysis?: string;
-  actionPlanJson: string;
+  actionPlanJson: ActionPlan[] | string;
   briefingJson?: Record<string, unknown>;
   videoRoomName?: string;
   createdAt: string;
   completedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface ActionPlan {
