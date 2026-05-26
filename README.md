@@ -52,6 +52,33 @@ Clausion은 역할별로 다른 화면과 기능을 제공합니다.
 
 ---
 
+## 📸 화면 캡처 / 근거 자료
+
+> 아래 이미지는 프론트엔드를 로컬에서 실행한 뒤 Playwright로 캡처한 실제 화면입니다.  
+> 백엔드 서버 없이 화면 구성을 검증하기 위해 API 응답은 캡처용 Mock 데이터로 대체했습니다.
+
+### Landing
+
+<img src="docs/images/screenshots/landing.png" alt="Clausion landing page" width="950">
+
+### Student Dashboard
+
+<img src="docs/images/screenshots/student-dashboard.png" alt="Student dashboard" width="950">
+
+### Study Group
+
+<img src="docs/images/screenshots/student-study-groups.png" alt="Student study groups" width="950">
+
+### Instructor Dashboard
+
+<img src="docs/images/screenshots/instructor-dashboard.png" alt="Instructor dashboard" width="950">
+
+### Operator Dashboard
+
+<img src="docs/images/screenshots/operator-dashboard.png" alt="Operator dashboard" width="950">
+
+---
+
 ## 🛠 기술 스택
 
 | 구분 | 기술/도구 |
