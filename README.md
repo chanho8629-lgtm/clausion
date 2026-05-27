@@ -57,25 +57,43 @@ Clausion은 역할별로 다른 화면과 기능을 제공합니다.
 > 아래 이미지는 프론트엔드를 로컬에서 실행한 뒤 Playwright로 캡처한 실제 화면입니다.  
 > 백엔드 서버 없이 화면 구성을 검증하기 위해 API 응답은 캡처용 Mock 데이터로 대체했습니다.
 
-### Landing
+### Public
 
 <img src="docs/images/screenshots/landing.png" alt="Clausion landing page" width="950">
 
-### Student Dashboard
+<img src="docs/images/screenshots/login.png" alt="Clausion login page" width="950">
+
+<img src="docs/images/screenshots/register.png" alt="Clausion register page" width="950">
+
+### Student
 
 <img src="docs/images/screenshots/student-dashboard.png" alt="Student dashboard" width="950">
 
-### Study Group
+<img src="docs/images/screenshots/student-review.png" alt="Student review workspace" width="950">
 
 <img src="docs/images/screenshots/student-study-groups.png" alt="Student study groups" width="950">
 
-### Instructor Dashboard
+<img src="docs/images/screenshots/student-group-chat.png" alt="Student group chat" width="950">
+
+### Instructor
 
 <img src="docs/images/screenshots/instructor-dashboard.png" alt="Instructor dashboard" width="950">
 
-### Operator Dashboard
+<img src="docs/images/screenshots/instructor-curriculum.png" alt="Instructor curriculum upload" width="950">
+
+<img src="docs/images/screenshots/instructor-students.png" alt="Instructor student monitoring" width="950">
+
+<img src="docs/images/screenshots/instructor-student-detail.png" alt="Instructor student detail" width="950">
+
+### Operator
 
 <img src="docs/images/screenshots/operator-dashboard.png" alt="Operator dashboard" width="950">
+
+<img src="docs/images/screenshots/operator-courses.png" alt="Operator course management" width="950">
+
+<img src="docs/images/screenshots/operator-invite-codes.png" alt="Operator invite code management" width="950">
+
+<img src="docs/images/screenshots/operator-audit.png" alt="Operator audit log" width="950">
 
 ---
 
