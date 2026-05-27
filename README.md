@@ -17,8 +17,6 @@
 
 <br>
 
-<img src="docs/images/clausion-hero.png" alt="Clausion AI learning platform hero" width="950">
-
 </div>
 
 ---
