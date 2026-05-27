@@ -6,7 +6,7 @@
 > 복습, 회고, 추천, 스터디그룹, 상담까지 연결하는 교육 운영 플랫폼입니다.  
 > 학생, 강사, 운영자가 하나의 데이터 흐름 안에서 학습 리스크를 발견하고 개입할 수 있도록 설계했습니다.
 
-![Java](https://img.shields.io/badge/Java-17-007396?style=flat-square&logo=openjdk&logoColor=white)
+
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.3-6DB33F?style=flat-square&logo=springboot&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3178C6?style=flat-square&logo=typescript&logoColor=white)
